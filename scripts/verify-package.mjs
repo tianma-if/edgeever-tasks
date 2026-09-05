@@ -7,6 +7,9 @@ if (manifest.type !== "plugin") throw new Error("manifest.type must be plugin");
 if (manifest.id !== "org.edgeever.tasks") throw new Error("Unexpected plugin id");
 if (manifest.entry !== "./main.js") throw new Error("GitHub plugins must use ./main.js");
 if (manifest.version !== packageJson.version) throw new Error("package.json and manifest.json versions differ");
+if (process.env.GITHUB_REF_TYPE === "tag" && process.env.GITHUB_REF_NAME !== `v${manifest.version}`) {
+  throw new Error(`Release tag ${process.env.GITHUB_REF_NAME} does not match v${manifest.version}`);
+}
 
 const entry = await readFile(new URL("../main.js", import.meta.url), "utf8");
 if (/\b(?:import|export)\s+(?:[^;]*?\s+from\s+)?["']\.\.?\//u.test(entry)) {
