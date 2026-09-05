@@ -1,0 +1,135 @@
+/* EdgeEver Tasks panel */
+.edgeever-tasks {
+  box-sizing: border-box;
+  margin: 0 auto;
+  max-width: 960px;
+  min-height: 100%;
+  padding: 32px clamp(16px, 4vw, 48px) 56px;
+  color: hsl(var(--foreground, 0 0% 13%));
+}
+
+.edgeever-tasks *,
+.edgeever-tasks *::before,
+.edgeever-tasks *::after { box-sizing: border-box; }
+
+.edgeever-tasks__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.edgeever-tasks__header h2 { margin: 0; font-size: 28px; line-height: 1.2; }
+
+.edgeever-tasks__summary,
+.edgeever-tasks__message {
+  margin: 6px 0 0;
+  color: hsl(var(--muted-foreground, 0 0% 40%));
+  font-size: 13px;
+}
+
+.edgeever-tasks__toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto auto;
+  gap: 12px;
+  margin: 24px 0 18px;
+}
+
+.edgeever-tasks input,
+.edgeever-tasks select,
+.edgeever-tasks__refresh {
+  min-height: 40px;
+  border: 1px solid hsl(var(--border, 0 0% 88%));
+  border-radius: 10px;
+  background: hsl(var(--card, 0 0% 100%));
+  color: hsl(var(--card-foreground, 0 0% 13%));
+  font: inherit;
+}
+
+.edgeever-tasks input { padding: 0 12px; }
+
+.edgeever-tasks__filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: hsl(var(--muted-foreground, 0 0% 40%));
+  font-size: 13px;
+}
+
+.edgeever-tasks__filter select { padding: 0 28px 0 10px; }
+.edgeever-tasks__refresh { padding: 0 14px; cursor: pointer; }
+.edgeever-tasks__list { display: grid; gap: 8px; margin-top: 14px; }
+
+.edgeever-tasks__row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  padding: 13px 14px;
+  border: 1px solid hsl(var(--border, 0 0% 88%));
+  border-radius: 12px;
+  background: hsl(var(--card, 0 0% 100%));
+  color: hsl(var(--card-foreground, 0 0% 13%));
+}
+
+.edgeever-tasks__row.is-completed { opacity: 0.66; }
+
+.edgeever-tasks__checkbox {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  padding: 0;
+  border: 1.5px solid #16a06e;
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.edgeever-tasks__checkbox[aria-checked="true"] { background: #16a06e; }
+
+.edgeever-tasks__content {
+  display: grid;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.edgeever-tasks__description { overflow-wrap: anywhere; font-size: 15px; line-height: 1.45; }
+.is-completed .edgeever-tasks__description { text-decoration: line-through; }
+
+.edgeever-tasks__metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 5px;
+  color: hsl(var(--muted-foreground, 0 0% 40%));
+  font-size: 12px;
+}
+
+.edgeever-tasks__metadata .is-overdue {
+  color: hsl(var(--destructive, 0 84% 60%));
+  font-weight: 600;
+}
+
+.edgeever-tasks button:focus-visible,
+.edgeever-tasks input:focus-visible,
+.edgeever-tasks select:focus-visible {
+  outline: 2px solid #16a06e;
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .edgeever-tasks { padding-top: 22px; }
+  .edgeever-tasks__toolbar { grid-template-columns: 1fr 1fr; }
+  .edgeever-tasks__toolbar input { grid-column: 1 / -1; }
+  .edgeever-tasks__filter { display: grid; gap: 4px; }
+}

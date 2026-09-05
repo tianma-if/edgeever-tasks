@@ -1,0 +1,13 @@
+{
+  "name": "edgeever-tasks",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "A Markdown-native task dashboard plugin for EdgeEver.",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "test": "bun test tests",
+    "verify": "bun scripts/verify-package.mjs",
+    "check": "bun run test && bun run verify"
+  }
+}
