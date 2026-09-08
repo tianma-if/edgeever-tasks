@@ -1,8 +1,13 @@
 # EdgeEver Tasks
 
-[简体中文](README.zh-CN.md)
+[![GitHub Stars](https://img.shields.io/github/stars/tianma-if/edgeever-tasks?style=social)](https://github.com/tianma-if/edgeever-tasks/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/tianma-if/edgeever-tasks?style=social)](https://github.com/tianma-if/edgeever-tasks/network/members)
 
-A Markdown-native task dashboard for [EdgeEver](https://github.com/tianma-if/edgeever). Tasks stay inside ordinary notes while the plugin builds a cross-note view and links each item back to its source.
+[简体中文](README.zh-CN.md) | English
+
+> **The official Markdown-native task dashboard plugin for EdgeEver.**
+
+EdgeEver Tasks keeps tasks inside ordinary notes while providing a unified cross-note dashboard. Every task remains plain Markdown and links directly back to its source note.
 
 ## Features
 
@@ -16,6 +21,12 @@ A Markdown-native task dashboard for [EdgeEver](https://github.com/tianma-if/edg
 - Inserts `- [ ] ` at the active editor cursor through a command.
 
 The index is intentionally memory-only. Restarting EdgeEver performs one initial scan; Markdown remains the source of truth and no plugin database or migration is required.
+
+## About EdgeEver
+
+[EdgeEver](https://github.com/tianma-if/edgeever) is an open-source, AI-native knowledge base and portable Evernote alternative with native MCP support.
+
+- GitHub: [github.com/tianma-if/edgeever](https://github.com/tianma-if/edgeever)
 
 ## Install
 
@@ -48,4 +59,4 @@ The distributable files live at the repository root because EdgeEver's GitHub in
 
 ## License and attribution
 
-Licensed under AGPL-3.0-or-later. The product concept and compatible task metadata are inspired by [Obsidian Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks); this implementation does not copy or bundle its source code.
+Licensed under AGPL-3.0-or-later. The product concept and compatible task metadata are inspired by [Obsidian Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks).

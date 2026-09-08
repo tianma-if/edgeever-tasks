@@ -1,8 +1,13 @@
 # EdgeEver Tasks
 
-[English](README.md)
+[![GitHub Stars](https://img.shields.io/github/stars/tianma-if/edgeever-tasks?style=social)](https://github.com/tianma-if/edgeever-tasks/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/tianma-if/edgeever-tasks?style=social)](https://github.com/tianma-if/edgeever-tasks/network/members)
 
-一个面向 [EdgeEver](https://github.com/tianma-if/edgeever) 的 Markdown 原生任务面板。任务仍保存在普通笔记中，插件负责建立跨笔记视图，并把每项任务链接回来源笔记。
+[English](README.md) | 简体中文
+
+> **EdgeEver 官方 Markdown 原生任务面板插件。**
+
+EdgeEver Tasks 让任务继续保存在普通笔记中，同时提供统一的跨笔记任务面板。每项任务始终是纯 Markdown，并可直接链接回来源笔记。
 
 ## 功能
 
@@ -16,6 +21,12 @@
 - 通过命令在当前编辑器光标处插入 `- [ ] `。
 
 索引有意只保存在内存中。EdgeEver 重启后会执行一次初始扫描；Markdown 始终是唯一事实来源，不需要插件数据库或数据迁移。
+
+## 关于 EdgeEver
+
+[EdgeEver](https://github.com/tianma-if/edgeever) 是一款开源、AI 原生的知识库和可迁移的 Evernote 替代方案，原生支持 MCP。
+
+- GitHub：[github.com/tianma-if/edgeever](https://github.com/tianma-if/edgeever)
 
 ## 安装
 
@@ -48,4 +59,4 @@ bun run check
 
 ## 许可证与致谢
 
-采用 AGPL-3.0-or-later 许可证。产品思路及兼容的任务元数据格式受到 [Obsidian Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks) 启发；本实现没有复制或打包其源代码。
+采用 AGPL-3.0-or-later 许可证。产品思路及兼容的任务元数据格式受到 [Obsidian Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks) 启发。

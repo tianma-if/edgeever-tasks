@@ -10,6 +10,7 @@ import {
   replaceNoteInTaskIndex,
   scanAllTasks,
 } from "../main.js";
+import taskPlugin from "../main.js";
 
 const note = (overrides = {}) => ({
   id: "note-1",
@@ -22,6 +23,27 @@ const note = (overrides = {}) => ({
 });
 
 describe("EdgeEver Tasks", () => {
+  test("registers an API v2 dashboard panel", () => {
+    let panel;
+    const dispose = () => {};
+    const context = {
+      ui: {
+        panels: {
+          register: (value) => { panel = value; return dispose; },
+          open: async () => {},
+        },
+        showNotice: () => {},
+      },
+      commands: { register: () => dispose },
+      events: { on: () => dispose },
+      editor: { insertAtCursor: async () => {} },
+    };
+
+    const deactivate = taskPlugin.activate(context);
+    expect(panel).toMatchObject({ id: "tasks", purpose: "dashboard", presentation: "fullscreen" });
+    deactivate();
+  });
+
   test("parses standard Markdown tasks with source offsets and metadata", () => {
     const tasks = parseTasksFromNote(note());
     expect(tasks).toHaveLength(2);

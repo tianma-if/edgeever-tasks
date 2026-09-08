@@ -427,6 +427,7 @@ export default {
     const disposePanel = context.ui.panels.register({
       id: "tasks",
       title: text.panelTitle,
+      purpose: "dashboard",
       presentation: "fullscreen",
       mount(container) { return mountDashboard(container, context, controller); },
     });
