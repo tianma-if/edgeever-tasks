@@ -8,6 +8,8 @@
   "scripts": {
     "test": "bun test tests",
     "verify": "bun scripts/verify-package.mjs",
-    "check": "bun run test && bun run verify"
+    "check": "bun run test && bun run verify",
+    "release": "bun scripts/release.mjs",
+    "publish-release": "bun scripts/publish-release.mjs"
   }
 }

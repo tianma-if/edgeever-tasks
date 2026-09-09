@@ -41,7 +41,7 @@ EdgeEver Tasks 让任务继续保存在普通笔记中，同时提供统一的�
 https://github.com/tianma-if/edgeever-tasks
 ```
 
-通过 GitHub 安装时，需要存在与 `manifest.json` 版本一致的正式 Release，并附带 `manifest.json`、`main.js` 和 `styles.css` 三个资产。
+通过 GitHub 安装时，需要存在与 `manifest.json` 版本一致的正式 Release，并附带 `manifest.json`、`main.js` 和 `styles.css` 三个资产。推送到 `main` 时，若不存在对应 Release，工作流会自动发布。
 
 ## 任务语法
 
@@ -70,7 +70,10 @@ https://github.com/tianma-if/edgeever-tasks
 
 ```sh
 bun run check
+bun run release -- --patch
 ```
+
+升版本只能用 `bun run release`。它会同步提交 `package.json` 和 `manifest.json`、推送 `main`，并发布安装器所需的 GitHub Release。
 
 可分发文件位于仓库根目录，因为 EdgeEver 的 GitHub 安装器要求这种结构。`main.js` 已经是单文件运行产物，不需要构建步骤。
 

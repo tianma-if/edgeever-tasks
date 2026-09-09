@@ -41,7 +41,7 @@ Open EdgeEver's **Plugin Marketplace**, enter this public repository URL, and in
 https://github.com/tianma-if/edgeever-tasks
 ```
 
-GitHub installation requires a published Release matching the version in `manifest.json`. The release must contain `manifest.json`, `main.js`, and `styles.css` as assets.
+GitHub installation requires a published Release matching the version in `manifest.json`. The release must contain `manifest.json`, `main.js`, and `styles.css` as assets. Pushing `main` publishes that Release automatically if it does not already exist.
 
 ## Task syntax
 
@@ -70,7 +70,10 @@ Requires Bun 1.3.14 or later.
 
 ```sh
 bun run check
+bun run release -- --patch
 ```
+
+`bun run release` is the only supported way to bump the version. It commits the synchronized `package.json` and `manifest.json`, pushes `main`, and publishes the GitHub Release the installer requires.
 
 The distributable files live at the repository root because EdgeEver's GitHub installer expects that layout. `main.js` is already the single-file runtime artifact; no build step is required.
 
