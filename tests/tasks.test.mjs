@@ -1,16 +1,35 @@
 import { describe, expect, test } from "bun:test";
 import {
-  createTaskIndex,
+  addCalendarDays,
+  compareTasks,
   createTaskController,
+  createTaskIndex,
+  createTaskSaveEdits,
   createTaskStatusEdit,
+  createTaskToggleEdits,
+  filterTasks,
   flattenTaskIndex,
+  formatTaskLine,
+  groupTasks,
+  lineBoundsAt,
+  localDateKey,
+  matchesView,
+  nextRecurrenceDate,
+  parseRecurrenceRule,
   parseTaskLine,
   parseTasksFromNote,
   removeNoteFromTaskIndex,
   replaceNoteInTaskIndex,
   scanAllTasks,
+  shiftTaskDates,
+  taskDueCategory,
 } from "../main.js";
 import taskPlugin from "../main.js";
+
+const applyEdits = (markdown, edits) => {
+  const ordered = [...edits].sort((left, right) => left.from - right.from || left.to - right.to);
+  return ordered.reduceRight((value, edit) => `${value.slice(0, edit.from)}${edit.insert}${value.slice(edit.to)}`, markdown);
+};
 
 const note = (overrides = {}) => ({
   id: "note-1",
@@ -22,25 +41,35 @@ const note = (overrides = {}) => ({
   ...overrides,
 });
 
+const copy = {
+  priorities: { highest: "Highest", high: "High", medium: "Medium", low: "Low", lowest: "Lowest", none: "None" },
+  groups: { none: "No grouping", overdue: "Overdue", today: "Today", week: "This week", later: "Later" },
+  views: { overdue: "Overdue", today: "Today" },
+  none: "None",
+};
+
 describe("EdgeEver Tasks", () => {
-  test("registers an API v2 dashboard panel", () => {
-    let panel;
+  test("registers dashboard and edit panels", () => {
+    const panels = [];
     const dispose = () => {};
     const context = {
       ui: {
         panels: {
-          register: (value) => { panel = value; return dispose; },
+          register: (value) => { panels.push(value); return dispose; },
           open: async () => {},
         },
         showNotice: () => {},
       },
       commands: { register: () => dispose },
       events: { on: () => dispose },
-      editor: { insertAtCursor: async () => {} },
+      editor: { insertAtCursor: async () => {}, getDocument: async () => null, getSelection: async () => null },
     };
 
     const deactivate = taskPlugin.activate(context);
-    expect(panel).toMatchObject({ id: "tasks", purpose: "dashboard", presentation: "fullscreen" });
+    expect(panels).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "tasks", purpose: "dashboard", presentation: "fullscreen" }),
+      expect.objectContaining({ id: "edit-task", purpose: "workflow", presentation: "dialog" }),
+    ]));
     deactivate();
   });
 
@@ -54,11 +83,12 @@ describe("EdgeEver Tasks", () => {
       checkboxOffset: 9,
       lineNumber: 2,
       completed: false,
+      status: "todo",
       description: "Ship release",
       due: "2026-09-10",
       priority: { rank: 5, name: "highest", marker: "🔺" },
     });
-    expect(tasks[1]).toMatchObject({ completed: true, description: "Tell users", completedDate: "2026-09-11" });
+    expect(tasks[1]).toMatchObject({ completed: true, status: "done", description: "Tell users", completedDate: "2026-09-11" });
   });
 
   test("supports bullets and numbered list markers but ignores arbitrary checkboxes", () => {
@@ -68,9 +98,50 @@ describe("EdgeEver Tasks", () => {
     expect(parseTaskLine("[ ] missing list marker")).toBeNull();
   });
 
-  test("does not turn examples inside fenced code blocks into tasks", () => {
-    const tasks = parseTasksFromNote(note({ contentMarkdown: "```md\n- [ ] example\n```\n- [ ] real" }));
+  test("parses in-progress and cancelled statuses", () => {
+    expect(parseTaskLine("- [/] Writing")).toMatchObject({ status: "in_progress", completed: false, description: "Writing" });
+    expect(parseTaskLine("- [-] Dropped ❌ 2026-09-01")).toMatchObject({
+      status: "cancelled",
+      cancelledDate: "2026-09-01",
+      description: "Dropped",
+    });
+  });
+
+  test("uses Obsidian cancelled, id, and depends-on markers", () => {
+    const task = parseTaskLine("- [ ] Review 🆔 design ⛔ draft");
+    expect(task).toMatchObject({ id: "design", dependsOn: "draft", description: "Review" });
+    expect(parseTaskLine("- [-] Old style ⛔ 2026-01-02")).toMatchObject({
+      cancelledDate: "2026-01-02",
+      dependsOn: null,
+    });
+  });
+
+  test("parses recurrence, tags, headings, and block links", () => {
+    const tasks = parseTasksFromNote(note({
+      contentMarkdown: "# Launch\n- [ ] Ship #work 🔁 every Sunday 📅 2026-09-13 ^abc",
+    }));
+    expect(tasks[0]).toMatchObject({
+      heading: "Launch",
+      tags: ["#work"],
+      recurrence: "every Sunday",
+      due: "2026-09-13",
+      blockLink: "^abc",
+      description: "Ship #work",
+    });
+  });
+
+  test("does not turn examples inside fenced code blocks or comments into tasks", () => {
+    const tasks = parseTasksFromNote(note({
+      contentMarkdown: "```md\n- [ ] example\n```\n<!--\n- [ ] commented\n-->\n%%\n- [ ] percent\n%%\n- [ ] real",
+    }));
     expect(tasks.map((task) => task.description)).toEqual(["real"]);
+  });
+
+  test("honors a global filter when indexing", () => {
+    const tasks = parseTasksFromNote(note({
+      contentMarkdown: "- [ ] #task Keep\n- [ ] Ignore",
+    }), { globalFilter: "#task" });
+    expect(tasks.map((task) => task.description)).toEqual(["#task Keep"]);
   });
 
   test("creates a one-character status edit against the scanned revision", () => {
@@ -85,6 +156,48 @@ describe("EdgeEver Tasks", () => {
     expect(createTaskStatusEdit(moved, task, true)).toEqual({ from: 15, to: 16, insert: "x" });
     const duplicated = note({ revision: 5, contentHash: "hash-5", contentMarkdown: `${task.rawLine}\n${task.rawLine}` });
     expect(() => createTaskStatusEdit(duplicated, task, true)).toThrow("TASK_SOURCE_CHANGED");
+  });
+
+  test("completing a task writes a done date", () => {
+    const source = note({ contentMarkdown: "- [ ] Ship 📅 2026-09-10" });
+    const task = parseTasksFromNote(source)[0];
+    const markdown = applyEdits(source.contentMarkdown, createTaskToggleEdits(source, task, { today: "2026-09-09", setDoneDate: true }));
+    expect(markdown).toBe("- [x] Ship 📅 2026-09-10 ✅ 2026-09-09");
+  });
+
+  test("completing a recurring task inserts the next occurrence", () => {
+    const source = note({ contentMarkdown: "- [ ] trash 🔁 every Sunday 📅 2021-04-25" });
+    const task = parseTasksFromNote(source)[0];
+    const markdown = applyEdits(source.contentMarkdown, createTaskToggleEdits(source, task, {
+      today: "2021-04-24",
+      setDoneDate: true,
+      recurrenceInsert: "before",
+    }));
+    expect(markdown).toBe("- [ ] trash 🔁 every Sunday 📅 2021-05-02\n- [x] trash 🔁 every Sunday 📅 2021-04-25 ✅ 2021-04-24");
+  });
+
+  test("reopening a task removes the done date", () => {
+    const source = note({ contentMarkdown: "- [x] Ship 📅 2026-09-10 ✅ 2026-09-09" });
+    const task = parseTasksFromNote(source)[0];
+    const markdown = applyEdits(source.contentMarkdown, createTaskToggleEdits(source, task, { today: "2026-09-09" }));
+    expect(markdown).toBe("- [ ] Ship 📅 2026-09-10");
+  });
+
+  test("saving an edited task preserves id and updates dates", () => {
+    const source = note({ contentMarkdown: "- [ ] Review 🆔 design 📅 2026-09-10" });
+    const task = parseTasksFromNote(source)[0];
+    const markdown = applyEdits(source.contentMarkdown, createTaskSaveEdits(source, task, {
+      description: "Review copy",
+      due: "2026-09-12",
+      priority: { rank: 4, name: "high", marker: "⏫" },
+    }));
+    expect(markdown).toBe("- [ ] Review copy ⏫ 📅 2026-09-12 🆔 design");
+  });
+
+  test("rejects a recurrence rule without a date", () => {
+    const source = note({ contentMarkdown: "- [ ] Repeat" });
+    const task = parseTasksFromNote(source)[0];
+    expect(() => createTaskSaveEdits(source, task, { recurrence: "every week" })).toThrow("TASK_RECURRENCE_NEEDS_DATE");
   });
 
   test("pages through note content instead of assuming a single result page", async () => {
@@ -149,5 +262,73 @@ describe("EdgeEver Tasks", () => {
     const elapsed = performance.now() - startedAt;
     expect(tasks).toHaveLength(10_000);
     expect(elapsed).toBeLessThan(1_500);
+  });
+});
+
+describe("recurrence and views", () => {
+  test("advances weekly, weekday, and monthly recurrences", () => {
+    expect(nextRecurrenceDate("2021-04-25", parseRecurrenceRule("every Sunday"))).toBe("2021-05-02");
+    expect(nextRecurrenceDate("2026-09-11", parseRecurrenceRule("every weekday"))).toBe("2026-09-14");
+    expect(nextRecurrenceDate("2021-10-31", parseRecurrenceRule("every month"))).toBe("2021-11-30");
+    expect(nextRecurrenceDate("2022-01-31", parseRecurrenceRule("every month on the last"))).toBe("2022-02-28");
+    expect(nextRecurrenceDate("2022-01-31", parseRecurrenceRule("every month on the 31st"))).toBe("2022-03-31");
+  });
+
+  test("shifts sibling dates by the same delta and honors when done", () => {
+    const task = parseTaskLine("- [ ] Mow 🔁 every 2 weeks ⏳ 2021-10-28 📅 2021-10-30");
+    expect(shiftTaskDates(task, "2021-10-30")).toEqual({ due: "2021-11-13", scheduled: "2021-11-11", start: null });
+    const whenDone = parseTaskLine("- [ ] Sweep 🔁 every week when done ⏳ 2021-02-06");
+    expect(shiftTaskDates(whenDone, "2022-02-13")).toEqual({ due: null, scheduled: "2022-02-20", start: null });
+  });
+
+  test("round-trips a formatted task line", () => {
+    const original = "- [ ] Ship #work 🔺 🔁 every week 📅 2026-09-10 🆔 abc ^link";
+    expect(formatTaskLine(parseTaskLine(original))).toBe(original);
+  });
+
+  test("sorts unprioritized tasks between medium and low", () => {
+    const tasks = [
+      parseTaskLine("- [ ] low 🔽"),
+      parseTaskLine("- [ ] none"),
+      parseTaskLine("- [ ] medium 🔼"),
+    ].sort(compareTasks);
+    expect(tasks.map((task) => task.description)).toEqual(["medium", "none", "low"]);
+  });
+
+  test("today and inbox views hide completed and dated tasks correctly", () => {
+    const today = "2026-09-09";
+    const openToday = parseTaskLine("- [ ] Due today 📅 2026-09-09");
+    const overdue = parseTaskLine("- [ ] Late 📅 2026-09-01");
+    const inbox = parseTaskLine("- [ ] Capture this");
+    const done = parseTaskLine("- [x] Finished 📅 2026-09-09 ✅ 2026-09-09");
+    expect(matchesView(openToday, "today", today)).toBe(true);
+    expect(matchesView(overdue, "today", today)).toBe(true);
+    expect(matchesView(inbox, "today", today)).toBe(false);
+    expect(matchesView(inbox, "inbox", today)).toBe(true);
+    expect(matchesView(done, "today", today)).toBe(false);
+    expect(taskDueCategory(done, today)).toBe("today");
+    expect(taskDueCategory(overdue, today)).toBe("overdue");
+  });
+
+  test("filters by search and groups by due bucket", () => {
+    const today = "2026-09-09";
+    const tasks = [
+      parseTaskLine("- [ ] Late docs 📅 2026-09-01"),
+      parseTaskLine("- [ ] Ship docs 📅 2026-09-09"),
+      parseTaskLine("- [ ] Later 📅 2026-10-01"),
+    ];
+    const visible = filterTasks(tasks, { view: "open", search: "docs", priority: "all" }, today);
+    expect(visible.map((task) => task.description)).toEqual(["Late docs", "Ship docs"]);
+    const grouped = groupTasks(visible, "due", today, copy);
+    expect(grouped.map((group) => group.key)).toEqual(["overdue", "today"]);
+    const scheduledToday = groupTasks([parseTaskLine("- [/] Announce ⏳ 2026-09-09")], "due", today, copy);
+    expect(scheduledToday.map((group) => group.key)).toEqual(["today"]);
+  });
+
+  test("lineBoundsAt finds the current editor line", () => {
+    const markdown = "alpha\n- [ ] beta\ngamma";
+    expect(lineBoundsAt(markdown, 10)).toEqual({ from: 6, to: 16, line: "- [ ] beta" });
+    expect(addCalendarDays("2026-09-09", 1)).toBe("2026-09-10");
+    expect(localDateKey(new Date(2026, 8, 9))).toBe("2026-09-09");
   });
 });

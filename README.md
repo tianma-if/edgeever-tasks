@@ -12,12 +12,17 @@ EdgeEver Tasks keeps tasks inside ordinary notes while providing a unified cross
 ## Features
 
 - Finds standard Markdown tasks such as `- [ ] Write release notes` and `- [x] Ship` across all notes.
-- Ignores task examples inside fenced code blocks.
-- Filters by completion state, due-date category, and free-text search.
-- Recognizes Obsidian Tasks-style date markers (`🛫`, `⏳`, `📅`, `✅`, `➕`, `⛔`) and priority markers.
+- Understands `- [/] In progress` and `- [-] Cancelled` statuses.
+- Ignores task examples inside fenced code blocks and comments.
+- Dashboard views for today, overdue, this week, inbox, open, recurring, done, and cancelled tasks.
+- Filters by keyword, priority, and grouping (due date, priority, note, or heading).
+- Compatible with Obsidian Tasks-style metadata: dates (`🛫`, `⏳`, `📅`, `✅`, `➕`, `❌`), priorities, recurrence (`🔁`), ids (`🆔`), and dependencies (`⛔`).
+- Completes a task with an optional done date and creates the next recurring occurrence.
+- Create or edit description, dates, priority, status, and recurrence from a dialog — from the dashboard or the current editor line.
 - Opens the source note from any dashboard row.
-- Completes or reopens a task with an optimistic-concurrency range edit, refusing ambiguous stale matches.
+- Completes or updates a task with an optimistic-concurrency range edit, preferring the live editor when that note is open.
 - Maintains an event-driven in-memory index after the first scan, so reopening the panel does not rescan every note.
+- Optional global filter so only checklist items such as `#task` are indexed.
 - Inserts `- [ ] ` at the active editor cursor through a command.
 
 The index is intentionally memory-only. Restarting EdgeEver performs one initial scan; Markdown remains the source of truth and no plugin database or migration is required.
@@ -42,10 +47,22 @@ GitHub installation requires a published Release matching the version in `manife
 
 ```md
 - [ ] Draft announcement 🔺 📅 2026-09-10
+- [/] Review copy 🔁 every week ⏳ 2026-09-11
 - [x] Publish release ✅ 2026-09-11
+- [-] Dropped approach ❌ 2026-09-09
 ```
 
 The plugin reads standard list checkboxes. Metadata is optional and remains plain Markdown.
+
+Recurring tasks need a due, scheduled, or start date. Completing `🔁 every Sunday 📅 2021-04-25` inserts the next occurrence and appends `✅` on the completed line.
+
+## Settings
+
+- **Global filter** — only index checklist items that contain this string, for example `#task`.
+- **Write done date on completion** — append `✅ YYYY-MM-DD` (on by default).
+- **Write cancelled date** — append `❌ YYYY-MM-DD` (on by default).
+- **Write created date on new tasks** — append `➕ YYYY-MM-DD` when creating from the edit dialog.
+- **Next recurring task** — insert the new occurrence above or below the completed task.
 
 ## Development
 
@@ -59,4 +76,6 @@ The distributable files live at the repository root because EdgeEver's GitHub in
 
 ## License and attribution
 
-Licensed under AGPL-3.0-or-later. The product concept and compatible task metadata are inspired by [Obsidian Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks).
+Licensed under AGPL-3.0-or-later.
+
+This plugin is an independent implementation for EdgeEver. It is compatible with [Obsidian Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks)-style task metadata (dates, priorities, and recurrence rules). It is not an official port of Obsidian Tasks.
