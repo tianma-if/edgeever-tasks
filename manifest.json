@@ -2,13 +2,16 @@
   "type": "plugin",
   "id": "org.edgeever.tasks",
   "name": "Tasks",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "apiVersion": "2",
   "settingsUi": "host",
   "description": "Collects Markdown tasks across notes and links every task back to its source.",
   "author": "tianma-if",
   "entry": "./main.js",
-  "platforms": ["web", "desktop"],
+  "platforms": [
+    "web",
+    "desktop"
+  ],
   "settings": {
     "fields": [
       {
@@ -45,11 +48,27 @@
         "label": "Next recurring task",
         "default": "before",
         "options": [
-          { "value": "before", "label": "Insert above the completed task" },
-          { "value": "after", "label": "Insert below the completed task" }
+          {
+            "value": "before",
+            "label": "Insert above the completed task"
+          },
+          {
+            "value": "after",
+            "label": "Insert below the completed task"
+          }
         ]
       }
     ]
   },
-  "permissions": ["notes:read", "notes:write", "editor:read", "editor:write", "storage", "ui:commands", "ui:navigation", "ui:notices", "ui:panels"]
+  "permissions": [
+    "notes:read",
+    "notes:write",
+    "editor:read",
+    "editor:write",
+    "storage",
+    "ui:commands",
+    "ui:navigation",
+    "ui:notices",
+    "ui:panels"
+  ]
 }
