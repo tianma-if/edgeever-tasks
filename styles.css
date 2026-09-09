@@ -24,6 +24,11 @@
   gap: 16px;
 }
 
+.edgeever-tasks--host-chrome {
+  max-width: none;
+  padding: 4px 0 16px;
+}
+
 .edgeever-tasks__header h2 { margin: 0; font-size: 28px; line-height: 1.2; }
 
 .edgeever-tasks__summary,

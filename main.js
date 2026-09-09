@@ -947,63 +947,75 @@ const snapshotTask = (task) => ({
 
 const openEditPanel = (context, state) => context.ui.panels.open("edit-task", { state });
 
-const mountDashboard = (container, context, controller) => {
+const mountDashboard = (container, context, controller, mountContext) => {
   const text = language();
+  const hasShell = typeof mountContext?.shell?.set === "function";
   const state = { ...DEFAULT_DASHBOARD_STATE };
   const root = document.createElement("section");
   root.className = "edgeever-tasks";
-  const header = document.createElement("header");
-  header.className = "edgeever-tasks__header";
-  const headingBlock = document.createElement("div");
-  const heading = document.createElement("h2");
-  heading.textContent = text.panelTitle;
-  const summary = document.createElement("p");
-  summary.className = "edgeever-tasks__summary";
-  headingBlock.append(heading, summary);
-  const refresh = document.createElement("button");
-  refresh.type = "button";
-  refresh.className = "edgeever-tasks__refresh";
-  refresh.textContent = text.refresh;
-  header.append(headingBlock, refresh);
-
-  const views = document.createElement("div");
-  views.className = "edgeever-tasks__views";
-  views.setAttribute("role", "tablist");
-  const viewButtons = new Map();
-  for (const view of VIEWS) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "edgeever-tasks__view";
-    button.dataset.view = view;
-    button.setAttribute("role", "tab");
-    views.append(button);
-    viewButtons.set(view, button);
-  }
-
-  const toolbar = document.createElement("div");
-  toolbar.className = "edgeever-tasks__toolbar";
-  const search = document.createElement("input");
-  search.type = "search";
-  search.placeholder = text.search;
-  search.setAttribute("aria-label", text.search);
-  const priorityFilter = createFilter(text.priority, [
-    ["all", text.all],
-    ...["highest", "high", "medium", "none", "low", "lowest"].map((name) => [name, text.priorities[name]]),
-  ]);
-  const groupFilter = createFilter(text.groupBy, [
-    ["due", text.groups.due],
-    ["priority", text.groups.priority],
-    ["note", text.groups.note],
-    ["heading", text.groups.heading],
-    ["none", text.groups.none],
-  ]);
-  groupFilter.select.value = state.groupBy;
-  toolbar.append(search, priorityFilter.label, groupFilter.label);
-  const message = document.createElement("p");
-  message.className = "edgeever-tasks__message";
   const list = document.createElement("div");
   list.className = "edgeever-tasks__list";
-  root.append(header, views, toolbar, message, list);
+  let summary;
+  let message;
+  let search;
+  let priorityFilter;
+  let groupFilter;
+  let views;
+  let viewButtons;
+  let refresh;
+  if (hasShell) {
+    root.classList.add("edgeever-tasks--host-chrome");
+    root.append(list);
+  } else {
+    const header = document.createElement("header");
+    header.className = "edgeever-tasks__header";
+    const headingBlock = document.createElement("div");
+    const heading = document.createElement("h2");
+    heading.textContent = text.panelTitle;
+    summary = document.createElement("p");
+    summary.className = "edgeever-tasks__summary";
+    headingBlock.append(heading, summary);
+    refresh = document.createElement("button");
+    refresh.type = "button";
+    refresh.className = "edgeever-tasks__refresh";
+    refresh.textContent = text.refresh;
+    header.append(headingBlock, refresh);
+    views = document.createElement("div");
+    views.className = "edgeever-tasks__views";
+    views.setAttribute("role", "tablist");
+    viewButtons = new Map();
+    for (const view of VIEWS) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "edgeever-tasks__view";
+      button.dataset.view = view;
+      button.setAttribute("role", "tab");
+      views.append(button);
+      viewButtons.set(view, button);
+    }
+    const toolbar = document.createElement("div");
+    toolbar.className = "edgeever-tasks__toolbar";
+    search = document.createElement("input");
+    search.type = "search";
+    search.placeholder = text.search;
+    search.setAttribute("aria-label", text.search);
+    priorityFilter = createFilter(text.priority, [
+      ["all", text.all],
+      ...["highest", "high", "medium", "none", "low", "lowest"].map((name) => [name, text.priorities[name]]),
+    ]);
+    groupFilter = createFilter(text.groupBy, [
+      ["due", text.groups.due],
+      ["priority", text.groups.priority],
+      ["note", text.groups.note],
+      ["heading", text.groups.heading],
+      ["none", text.groups.none],
+    ]);
+    groupFilter.select.value = state.groupBy;
+    toolbar.append(search, priorityFilter.label, groupFilter.label);
+    message = document.createElement("p");
+    message.className = "edgeever-tasks__message";
+    root.append(header, views, toolbar, message, list);
+  }
   container.append(root);
 
   const persistState = () => {
@@ -1027,29 +1039,94 @@ const mountDashboard = (container, context, controller) => {
     }
   };
 
+  const statusMessage = (visible) => (controller.loading
+    ? text.loading
+    : controller.error
+      ? text.scanFailed
+      : visible.length === 0
+        ? text.empty
+        : visible.length > DISPLAY_LIMIT
+          ? text.truncated(DISPLAY_LIMIT, visible.length)
+          : "");
+
+  const publishChrome = (visible, today) => {
+    if (!hasShell) return;
+    mountContext.shell.set({
+      header: {
+        title: text.panelTitle,
+        description: visible.length > DISPLAY_LIMIT
+          ? text.truncated(DISPLAY_LIMIT, visible.length)
+          : text.summary(visible.length, controller.tasks.length),
+        actions: [{ id: "refresh", label: text.refresh }],
+      },
+      toolbar: [
+        {
+          type: "tabs",
+          key: "view",
+          value: state.view,
+          options: VIEWS.map((view) => ({
+            value: view,
+            label: `${text.views[view]} · ${filterTasks(controller.tasks, { ...state, view, search: "", priority: "all" }, today).length}`,
+          })),
+        },
+        { type: "search", key: "search", placeholder: text.search, value: state.search },
+        {
+          type: "select",
+          key: "priority",
+          label: text.priority,
+          value: state.priority,
+          options: [["all", text.all], ...["highest", "high", "medium", "none", "low", "lowest"].map((name) => [name, text.priorities[name]])].map(([value, label]) => ({ value, label })),
+        },
+        {
+          type: "select",
+          key: "groupBy",
+          label: text.groupBy,
+          value: state.groupBy,
+          options: [
+            ["due", text.groups.due],
+            ["priority", text.groups.priority],
+            ["note", text.groups.note],
+            ["heading", text.groups.heading],
+            ["none", text.groups.none],
+          ].map(([value, label]) => ({ value, label })),
+        },
+      ],
+      empty: visible.length === 0 ? { title: statusMessage(visible) } : null,
+      onAction(id) {
+        if (id === "refresh") void controller.refresh();
+      },
+      onChange(key, value) {
+        if (key === "view" && VIEWS.includes(value)) state.view = value;
+        else if (key === "search") state.search = value;
+        else if (key === "priority") state.priority = value;
+        else if (key === "groupBy") state.groupBy = value;
+        else return;
+        persistState();
+        render();
+      },
+    });
+  };
+
   const render = () => {
     const today = localDateKey();
-    state.search = search.value;
-    state.priority = priorityFilter.select.value;
-    state.groupBy = groupFilter.select.value;
-    const visible = filterTasks(controller.tasks, state, today);
-    summary.textContent = text.summary(visible.length, controller.tasks.length);
-    for (const [view, button] of viewButtons) {
-      const count = filterTasks(controller.tasks, { ...state, view, search: "", priority: "all" }, today).length;
-      button.textContent = `${text.views[view]} · ${count}`;
-      button.setAttribute("aria-selected", String(view === state.view));
-      button.classList.toggle("is-active", view === state.view);
+    if (!hasShell) {
+      state.search = search.value;
+      state.priority = priorityFilter.select.value;
+      state.groupBy = groupFilter.select.value;
     }
+    const visible = filterTasks(controller.tasks, state, today);
+    if (!hasShell) {
+      summary.textContent = text.summary(visible.length, controller.tasks.length);
+      for (const [view, button] of viewButtons) {
+        const count = filterTasks(controller.tasks, { ...state, view, search: "", priority: "all" }, today).length;
+        button.textContent = `${text.views[view]} · ${count}`;
+        button.setAttribute("aria-selected", String(view === state.view));
+        button.classList.toggle("is-active", view === state.view);
+      }
+      message.textContent = statusMessage(visible);
+    }
+    publishChrome(visible, today);
     const shown = visible.slice(0, DISPLAY_LIMIT);
-    message.textContent = controller.loading
-      ? text.loading
-      : controller.error
-        ? text.scanFailed
-        : visible.length === 0
-          ? text.empty
-          : visible.length > DISPLAY_LIMIT
-            ? text.truncated(DISPLAY_LIMIT, visible.length)
-            : "";
     list.replaceChildren();
     const groups = groupTasks(shown, state.groupBy, today, text);
     for (const group of groups) {
@@ -1169,40 +1246,42 @@ const mountDashboard = (container, context, controller) => {
   };
 
   controller.render = render;
-  search.addEventListener("input", () => {
-    persistState();
-    render();
-  });
-  priorityFilter.select.addEventListener("change", () => {
-    persistState();
-    render();
-  });
-  groupFilter.select.addEventListener("change", () => {
-    persistState();
-    render();
-  });
-  views.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-view]");
-    if (!button) return;
-    state.view = button.dataset.view;
-    persistState();
-    render();
-  });
-  refresh.addEventListener("click", () => void controller.refresh());
+  if (!hasShell) {
+    search.addEventListener("input", () => {
+      persistState();
+      render();
+    });
+    priorityFilter.select.addEventListener("change", () => {
+      persistState();
+      render();
+    });
+    groupFilter.select.addEventListener("change", () => {
+      persistState();
+      render();
+    });
+    views.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-view]");
+      if (!button) return;
+      state.view = button.dataset.view;
+      persistState();
+      render();
+    });
+    refresh.addEventListener("click", () => void controller.refresh());
+  }
   void context.storage?.get(DASHBOARD_STATE_KEY).then((stored) => {
     if (!stored || typeof stored !== "object") return;
     if (VIEWS.includes(stored.view)) state.view = stored.view;
     if (typeof stored.search === "string") {
       state.search = stored.search;
-      search.value = stored.search;
+      if (search) search.value = stored.search;
     }
     if (typeof stored.priority === "string") {
       state.priority = stored.priority;
-      priorityFilter.select.value = stored.priority;
+      if (priorityFilter) priorityFilter.select.value = stored.priority;
     }
     if (typeof stored.groupBy === "string") {
       state.groupBy = stored.groupBy;
-      groupFilter.select.value = stored.groupBy;
+      if (groupFilter) groupFilter.select.value = stored.groupBy;
     }
     render();
   });
@@ -1322,29 +1401,45 @@ const mountEditor = (container, context, controller, mountContext) => {
     hints.append(chip);
   }
 
-  const actions = document.createElement("div");
-  actions.className = "edgeever-tasks-edit__actions";
-  const cancel = document.createElement("button");
-  cancel.type = "button";
-  cancel.textContent = text.cancel;
-  const save = document.createElement("button");
-  save.type = "submit";
-  save.className = "edgeever-tasks-edit__save";
-  save.textContent = text.save;
-  actions.append(cancel, save);
-
-  root.append(
-    fieldBlock(text.fields.description, description),
-    fieldBlock(text.fields.status, status),
-    fieldBlock(text.fields.priority, priority),
-    fieldBlock(text.fields.due, dateRow(due)),
-    fieldBlock(text.fields.scheduled, dateRow(scheduled)),
-    fieldBlock(text.fields.start, dateRow(start)),
-    fieldBlock(text.fields.recurrence, recurrence),
-    hints,
-    error,
-    actions,
-  );
+  const hasShell = typeof mountContext?.shell?.set === "function";
+  let save;
+  if (!hasShell) {
+    const actions = document.createElement("div");
+    actions.className = "edgeever-tasks-edit__actions";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = text.cancel;
+    save = document.createElement("button");
+    save.type = "submit";
+    save.className = "edgeever-tasks-edit__save";
+    save.textContent = text.save;
+    actions.append(cancel, save);
+    cancel.addEventListener("click", () => void mountContext.requestClose());
+    root.append(
+      fieldBlock(text.fields.description, description),
+      fieldBlock(text.fields.status, status),
+      fieldBlock(text.fields.priority, priority),
+      fieldBlock(text.fields.due, dateRow(due)),
+      fieldBlock(text.fields.scheduled, dateRow(scheduled)),
+      fieldBlock(text.fields.start, dateRow(start)),
+      fieldBlock(text.fields.recurrence, recurrence),
+      hints,
+      error,
+      actions,
+    );
+  } else {
+    root.append(
+      fieldBlock(text.fields.description, description),
+      fieldBlock(text.fields.status, status),
+      fieldBlock(text.fields.priority, priority),
+      fieldBlock(text.fields.due, dateRow(due)),
+      fieldBlock(text.fields.scheduled, dateRow(scheduled)),
+      fieldBlock(text.fields.start, dateRow(start)),
+      fieldBlock(text.fields.recurrence, recurrence),
+      hints,
+      error,
+    );
+  }
   container.append(root);
   description.focus();
 
@@ -1353,9 +1448,7 @@ const mountEditor = (container, context, controller, mountContext) => {
     error.textContent = message ?? "";
   };
 
-  cancel.addEventListener("click", () => void mountContext.requestClose());
-  root.addEventListener("submit", async (event) => {
-    event.preventDefault();
+  const submit = async () => {
     const fields = readTaskForm(form, parsed ?? {});
     if (!fields.description) {
       showError(text.descriptionRequired);
@@ -1366,7 +1459,18 @@ const mountEditor = (container, context, controller, mountContext) => {
       return;
     }
     if (controller.settings.setCreatedDate && state.mode === "create") fields.created = localDateKey();
-    save.disabled = true;
+    if (save) save.disabled = true;
+    mountContext.shell?.set?.({
+      header: {
+        title: text.editTitle,
+        description: null,
+        actions: [
+          { id: "cancel", label: text.cancel, variant: "ghost" },
+          { id: "save", label: text.save, variant: "primary", disabled: true },
+        ],
+      },
+      onAction,
+    });
     try {
       if (scanned) {
         await applyTaskEdits(context, controller, scanned, (note) => createTaskSaveEdits(note, scanned, fields, {
@@ -1380,9 +1484,36 @@ const mountEditor = (container, context, controller, mountContext) => {
       context.ui.showNotice(text.saved);
       await mountContext.requestClose();
     } catch (cause) {
-      save.disabled = false;
+      if (save) save.disabled = false;
       showError(cause?.message === "TASK_RECURRENCE_NEEDS_DATE" ? text.recurrenceNeedsDate : text.saveFailed);
+      publishEditorChrome();
     }
+  };
+
+  const onAction = (id) => {
+    if (id === "cancel") void mountContext.requestClose();
+    if (id === "save") void submit();
+  };
+
+  const publishEditorChrome = () => {
+    if (!hasShell) return;
+    mountContext.shell.set({
+      header: {
+        title: text.editTitle,
+        description: null,
+        actions: [
+          { id: "cancel", label: text.cancel, variant: "ghost" },
+          { id: "save", label: text.save, variant: "primary" },
+        ],
+      },
+      onAction,
+    });
+  };
+
+  publishEditorChrome();
+  root.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await submit();
   });
 
   return () => root.remove();
@@ -1412,7 +1543,7 @@ export default {
       title: text.panelTitle,
       purpose: "dashboard",
       presentation: "fullscreen",
-      mount(container) { return mountDashboard(container, context, controller); },
+      mount(container, mountContext) { return mountDashboard(container, context, controller, mountContext); },
     });
     const disposeEditor = context.ui.panels.register({
       id: "edit-task",
