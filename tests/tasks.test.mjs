@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
   addCalendarDays,
+  addCalendarMonths,
   compareTasks,
+  countTasksByDate,
   createTaskController,
   createTaskIndex,
   createTaskSaveEdits,
@@ -14,6 +16,8 @@ import {
   lineBoundsAt,
   localDateKey,
   matchesView,
+  monthGrid,
+  monthKeyFromDate,
   nextRecurrenceDate,
   parseRecurrenceRule,
   parseTaskLine,
@@ -23,6 +27,7 @@ import {
   scanAllTasks,
   shiftTaskDates,
   taskDueCategory,
+  taskOccursOn,
 } from "../main.js";
 import taskPlugin from "../main.js";
 
@@ -51,6 +56,7 @@ const copy = {
 describe("EdgeEver Tasks", () => {
   test("registers dashboard and edit panels", () => {
     const panels = [];
+    const commands = [];
     const dispose = () => {};
     const context = {
       ui: {
@@ -60,7 +66,7 @@ describe("EdgeEver Tasks", () => {
         },
         showNotice: () => {},
       },
-      commands: { register: () => dispose },
+      commands: { register: (value) => { commands.push(value); return dispose; } },
       events: { on: () => dispose },
       editor: { insertAtCursor: async () => {}, getDocument: async () => null, getSelection: async () => null },
     };
@@ -69,6 +75,11 @@ describe("EdgeEver Tasks", () => {
     expect(panels).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: "tasks", purpose: "dashboard", presentation: "fullscreen" }),
       expect.objectContaining({ id: "edit-task", purpose: "workflow", presentation: "dialog" }),
+    ]));
+    expect(commands).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "open-dashboard", menu: false }),
+      expect.objectContaining({ id: "insert-task", listed: false }),
+      expect.objectContaining({ id: "create-or-edit", listed: false }),
     ]));
     deactivate();
   });
@@ -330,5 +341,48 @@ describe("recurrence and views", () => {
     expect(lineBoundsAt(markdown, 10)).toEqual({ from: 6, to: 16, line: "- [ ] beta" });
     expect(addCalendarDays("2026-09-09", 1)).toBe("2026-09-10");
     expect(localDateKey(new Date(2026, 8, 9))).toBe("2026-09-09");
+  });
+
+  test("filters tasks to a selected calendar date", () => {
+    const today = "2026-09-10";
+    const tasks = [
+      parseTaskLine("- [ ] Due today 📅 2026-09-10"),
+      parseTaskLine("- [/] Scheduled today ⏳ 2026-09-10"),
+      parseTaskLine("- [ ] Starts today 🛫 2026-09-10"),
+      parseTaskLine("- [ ] Tomorrow 📅 2026-09-11"),
+      parseTaskLine("- [x] Finished ✅ 2026-09-10"),
+      parseTaskLine("- [-] Dropped ❌ 2026-09-10"),
+    ];
+    expect(taskOccursOn(tasks[0], "2026-09-10")).toBe(true);
+    expect(taskOccursOn(tasks[3], "2026-09-10")).toBe(false);
+    expect(filterTasks(tasks, { view: "open", onDate: "2026-09-10" }, today).map((task) => task.description))
+      .toEqual(["Scheduled today", "Due today", "Starts today"]);
+    expect(filterTasks(tasks, { view: "done", onDate: "2026-09-10" }, today).map((task) => task.description))
+      .toEqual(["Finished"]);
+    expect(filterTasks(tasks, { view: "cancelled", onDate: "2026-09-10" }, today).map((task) => task.description))
+      .toEqual(["Dropped"]);
+    expect(filterTasks(tasks, { view: "open", onDate: "2026-09-11" }, today).map((task) => task.description))
+      .toEqual(["Tomorrow"]);
+  });
+
+  test("calendar month grid and per-day counts follow the current view", () => {
+    expect(monthKeyFromDate("2026-09-10")).toBe("2026-09");
+    expect(addCalendarMonths("2026-09", 1)).toBe("2026-10");
+    expect(addCalendarMonths("2026-01", -1)).toBe("2025-12");
+    const mondayFirst = monthGrid("2026-09", { weekStartsOn: 1 });
+    expect(mondayFirst).toHaveLength(35);
+    expect(mondayFirst[0]).toMatchObject({ date: "2026-08-31", inMonth: false });
+    expect(mondayFirst.find((cell) => cell.date === "2026-09-01")).toMatchObject({ day: 1, inMonth: true, weekday: 2 });
+    const sundayFirst = monthGrid("2026-09", { weekStartsOn: 0 });
+    expect(sundayFirst[0].date).toBe("2026-08-30");
+    const tasks = [
+      parseTaskLine("- [ ] Due today 📅 2026-09-10"),
+      parseTaskLine("- [ ] Tomorrow 📅 2026-09-11"),
+      parseTaskLine("- [x] Finished ✅ 2026-09-10"),
+    ];
+    const counts = countTasksByDate(tasks, { view: "open", onDate: "2026-09-11" }, "2026-09-10");
+    expect(counts.get("2026-09-10")).toBe(1);
+    expect(counts.get("2026-09-11")).toBe(1);
+    expect(counts.has("2026-09-12")).toBe(false);
   });
 });

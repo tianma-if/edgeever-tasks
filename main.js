@@ -48,6 +48,7 @@ const DEFAULT_DASHBOARD_STATE = {
   search: "",
   priority: "all",
   groupBy: "due",
+  onDate: null,
 };
 const VIEWS = ["today", "overdue", "week", "inbox", "open", "recurring", "done", "cancelled", "all"];
 const DATE_TOKEN = "\\d{4}-\\d{2}-\\d{2}";
@@ -128,6 +129,14 @@ const copy = {
       recurrence: "Recurrence",
     },
     dateShortcuts: { today: "Today", tomorrow: "Tomorrow", nextWeek: "Next week", clear: "Clear" },
+    calendar: "Calendar",
+    previousMonth: "Previous month",
+    nextMonth: "Next month",
+    month: "Month",
+    allDates: "All dates",
+    showingDate: (date) => `Tasks on ${date}`,
+    emptyOnDate: (date) => `No tasks on ${date}.`,
+    weekdays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
     recurrenceHints: ["every day", "every weekday", "every week", "every month", "every month on the last", "every year"],
     save: "Save",
     cancel: "Cancel",
@@ -209,6 +218,14 @@ const copy = {
       recurrence: "重复",
     },
     dateShortcuts: { today: "今天", tomorrow: "明天", nextWeek: "下周", clear: "清除" },
+    calendar: "日历",
+    previousMonth: "上个月",
+    nextMonth: "下个月",
+    month: "月份",
+    allDates: "全部日期",
+    showingDate: (date) => `正在查看 ${date} 的任务`,
+    emptyOnDate: (date) => `没有 ${date} 的任务。`,
+    weekdays: ["日", "一", "二", "三", "四", "五", "六"],
     recurrenceHints: ["every day", "every weekday", "every week", "every month", "every month on the last", "every year"],
     save: "保存",
     cancel: "取消",
@@ -240,6 +257,63 @@ export const addCalendarDays = (dateKey, days) => {
   date.setDate(date.getDate() + days);
   return localDateKey(date);
 };
+
+export const isDateKey = (value) => Boolean(parseLocalDate(value));
+
+export const monthKeyFromDate = (dateKey) => {
+  const date = parseLocalDate(dateKey);
+  if (!date) return null;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+};
+
+export const addCalendarMonths = (monthKey, delta) => {
+  const match = /^(\d{4})-(\d{2})$/u.exec(monthKey ?? "");
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1 + delta, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+};
+
+export const monthGrid = (monthKey, { weekStartsOn = 1 } = {}) => {
+  const match = /^(\d{4})-(\d{2})$/u.exec(monthKey ?? "");
+  if (!match) return [];
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  const first = new Date(year, monthIndex, 1);
+  const offset = (first.getDay() - weekStartsOn + 7) % 7;
+  const start = new Date(year, monthIndex, 1 - offset);
+  const cells = Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
+    return {
+      date: localDateKey(date),
+      day: date.getDate(),
+      inMonth: date.getMonth() === monthIndex,
+      weekday: date.getDay(),
+    };
+  });
+  return cells.slice(35).every((cell) => !cell.inMonth) ? cells.slice(0, 35) : cells;
+};
+
+export const formatDisplayDate = (dateKey, locale = globalThis.navigator?.language ?? "en") => {
+  const date = parseLocalDate(dateKey);
+  if (!date) return dateKey ?? "";
+  return date.toLocaleDateString(locale, { weekday: "short", year: "numeric", month: "short", day: "numeric" });
+};
+
+export const formatMonthTitle = (monthKey, locale = globalThis.navigator?.language ?? "en") => {
+  const date = parseLocalDate(`${monthKey}-01`);
+  if (!date) return monthKey ?? "";
+  return date.toLocaleDateString(locale, { year: "numeric", month: "long" });
+};
+
+export const taskDateKeys = (task) => [...new Set([
+  task.due,
+  task.scheduled,
+  task.start,
+  task.completedDate,
+  task.cancelledDate,
+].filter(Boolean))];
+
+export const taskOccursOn = (task, date) => Boolean(date) && taskDateKeys(task).includes(date);
 
 const diffDays = (fromKey, toKey) => {
   const from = parseLocalDate(fromKey);
@@ -749,8 +823,10 @@ export const matchesView = (task, view, today) => {
 
 export const filterTasks = (tasks, query, today) => {
   const search = query.search?.trim().toLocaleLowerCase() ?? "";
+  const onDate = isDateKey(query.onDate) ? query.onDate : null;
   return tasks.filter((task) => {
     if (!matchesView(task, query.view ?? "open", today)) return false;
+    if (onDate && !taskOccursOn(task, onDate)) return false;
     if (query.priority && query.priority !== "all") {
       const name = task.priority?.name ?? "none";
       if (name !== query.priority) return false;
@@ -759,6 +835,14 @@ export const filterTasks = (tasks, query, today) => {
     const haystack = `${task.description} ${task.noteTitle} ${task.heading} ${task.tags.join(" ")} ${task.recurrence ?? ""}`.toLocaleLowerCase();
     return haystack.includes(search);
   }).sort(compareTasks);
+};
+
+export const countTasksByDate = (tasks, query, today) => {
+  const counts = new Map();
+  for (const task of filterTasks(tasks, { ...query, onDate: null }, today)) {
+    for (const key of taskDateKeys(task)) counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
 };
 
 export const groupTasks = (tasks, groupBy, today, text) => {
@@ -947,10 +1031,117 @@ const snapshotTask = (task) => ({
 
 const openEditPanel = (context, state) => context.ui.panels.open("edit-task", { state });
 
+const weekdayLabels = (labels, weekStartsOn) => labels.slice(weekStartsOn).concat(labels.slice(0, weekStartsOn));
+
+const createCalendar = (text, { weekStartsOn, locale, onSelect, onMonth }) => {
+  const root = document.createElement("section");
+  root.className = "edgeever-tasks__calendar";
+  root.setAttribute("aria-label", text.calendar);
+  const header = document.createElement("div");
+  header.className = "edgeever-tasks__calendar-header";
+  const prev = document.createElement("button");
+  prev.type = "button";
+  prev.className = "edgeever-tasks__calendar-nav";
+  prev.setAttribute("aria-label", text.previousMonth);
+  prev.textContent = "‹";
+  const monthInput = document.createElement("input");
+  monthInput.type = "month";
+  monthInput.className = "edgeever-tasks__calendar-month";
+  monthInput.setAttribute("aria-label", text.month);
+  const next = document.createElement("button");
+  next.type = "button";
+  next.className = "edgeever-tasks__calendar-nav";
+  next.setAttribute("aria-label", text.nextMonth);
+  next.textContent = "›";
+  const todayButton = document.createElement("button");
+  todayButton.type = "button";
+  todayButton.className = "edgeever-tasks-edit__chip";
+  todayButton.textContent = text.dateShortcuts.today;
+  const clear = document.createElement("button");
+  clear.type = "button";
+  clear.className = "edgeever-tasks-edit__chip";
+  clear.textContent = text.allDates;
+  header.append(prev, monthInput, next, todayButton, clear);
+  const weekdays = document.createElement("div");
+  weekdays.className = "edgeever-tasks__calendar-weekdays";
+  weekdays.setAttribute("aria-hidden", "true");
+  for (const label of weekdayLabels(text.weekdays, weekStartsOn)) {
+    const cell = document.createElement("span");
+    cell.className = "edgeever-tasks__calendar-weekday";
+    cell.textContent = label;
+    weekdays.append(cell);
+  }
+  const grid = document.createElement("div");
+  grid.className = "edgeever-tasks__calendar-grid";
+  grid.setAttribute("role", "grid");
+  const caption = document.createElement("p");
+  caption.className = "edgeever-tasks__calendar-caption";
+  root.append(header, weekdays, grid, caption);
+  let month = null;
+  let today = null;
+  prev.addEventListener("click", () => {
+    const value = addCalendarMonths(month, -1);
+    if (value) onMonth(value);
+  });
+  next.addEventListener("click", () => {
+    const value = addCalendarMonths(month, 1);
+    if (value) onMonth(value);
+  });
+  monthInput.addEventListener("change", () => {
+    if (/^\d{4}-\d{2}$/u.test(monthInput.value)) onMonth(monthInput.value);
+  });
+  todayButton.addEventListener("click", () => onSelect(today));
+  clear.addEventListener("click", () => onSelect(null));
+  const update = (nextState) => {
+    month = nextState.month;
+    today = nextState.today;
+    monthInput.value = month ?? "";
+    monthInput.title = formatMonthTitle(month, locale);
+    clear.disabled = !nextState.onDate;
+    caption.textContent = nextState.onDate
+      ? text.showingDate(formatDisplayDate(nextState.onDate, locale))
+      : text.allDates;
+    grid.replaceChildren();
+    for (const cell of monthGrid(month, { weekStartsOn })) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "edgeever-tasks__calendar-day";
+      button.textContent = String(cell.day);
+      button.dataset.date = cell.date;
+      button.setAttribute("role", "gridcell");
+      button.setAttribute("aria-label", formatDisplayDate(cell.date, locale));
+      if (!cell.inMonth) button.classList.add("is-outside");
+      if (cell.date === today) {
+        button.classList.add("is-today");
+        button.setAttribute("aria-current", "date");
+      }
+      if (cell.date === nextState.onDate) {
+        button.classList.add("is-selected");
+        button.setAttribute("aria-pressed", "true");
+      } else {
+        button.setAttribute("aria-pressed", "false");
+      }
+      const count = nextState.counts.get(cell.date) ?? 0;
+      if (count) {
+        button.classList.add("has-tasks");
+        button.title = `${formatDisplayDate(cell.date, locale)} · ${count}`;
+      }
+      button.addEventListener("click", () => {
+        onSelect(cell.date === nextState.onDate ? null : cell.date);
+      });
+      grid.append(button);
+    }
+  };
+  return { root, update };
+};
+
 const mountDashboard = (container, context, controller, mountContext) => {
   const text = language();
+  const locale = globalThis.navigator?.language ?? "en";
+  const weekStartsOn = text === copy.zh ? 1 : 0;
   const hasShell = typeof mountContext?.shell?.set === "function";
   const state = { ...DEFAULT_DASHBOARD_STATE };
+  let visibleMonth = null;
   const root = document.createElement("section");
   root.className = "edgeever-tasks";
   const list = document.createElement("div");
@@ -963,9 +1154,25 @@ const mountDashboard = (container, context, controller, mountContext) => {
   let views;
   let viewButtons;
   let refresh;
+  const calendar = createCalendar(text, {
+    weekStartsOn,
+    locale,
+    onSelect(date) {
+      state.onDate = date;
+      if (date) visibleMonth = monthKeyFromDate(date);
+      persistState();
+      render();
+    },
+    onMonth(month) {
+      visibleMonth = month;
+      render();
+    },
+  });
+  message = document.createElement("p");
+  message.className = "edgeever-tasks__message";
   if (hasShell) {
     root.classList.add("edgeever-tasks--host-chrome");
-    root.append(list);
+    root.append(calendar.root, message, list);
   } else {
     const header = document.createElement("header");
     header.className = "edgeever-tasks__header";
@@ -1012,9 +1219,7 @@ const mountDashboard = (container, context, controller, mountContext) => {
     ]);
     groupFilter.select.value = state.groupBy;
     toolbar.append(search, priorityFilter.label, groupFilter.label);
-    message = document.createElement("p");
-    message.className = "edgeever-tasks__message";
-    root.append(header, views, toolbar, message, list);
+    root.append(header, views, toolbar, calendar.root, message, list);
   }
   container.append(root);
 
@@ -1024,6 +1229,7 @@ const mountDashboard = (container, context, controller, mountContext) => {
       search: state.search,
       priority: state.priority,
       groupBy: state.groupBy,
+      onDate: state.onDate,
     });
   };
 
@@ -1039,24 +1245,29 @@ const mountDashboard = (container, context, controller, mountContext) => {
     }
   };
 
-  const statusMessage = (visible) => (controller.loading
-    ? text.loading
-    : controller.error
-      ? text.scanFailed
-      : visible.length === 0
-        ? text.empty
-        : visible.length > DISPLAY_LIMIT
-          ? text.truncated(DISPLAY_LIMIT, visible.length)
-          : "");
+  const statusMessage = (visible) => {
+    if (controller.loading) return text.loading;
+    if (controller.error) return text.scanFailed;
+    if (visible.length === 0) {
+      return isDateKey(state.onDate)
+        ? text.emptyOnDate(formatDisplayDate(state.onDate, locale))
+        : text.empty;
+    }
+    if (visible.length > DISPLAY_LIMIT) return text.truncated(DISPLAY_LIMIT, visible.length);
+    return "";
+  };
 
   const publishChrome = (visible, today) => {
     if (!hasShell) return;
     mountContext.shell.set({
       header: {
         title: text.panelTitle,
-        description: visible.length > DISPLAY_LIMIT
-          ? text.truncated(DISPLAY_LIMIT, visible.length)
-          : text.summary(visible.length, controller.tasks.length),
+        description: [
+          visible.length > DISPLAY_LIMIT
+            ? text.truncated(DISPLAY_LIMIT, visible.length)
+            : text.summary(visible.length, controller.tasks.length),
+          isDateKey(state.onDate) ? formatDisplayDate(state.onDate, locale) : null,
+        ].filter(Boolean).join(" · "),
         actions: [{ id: "refresh", label: text.refresh }],
       },
       toolbar: [
@@ -1091,7 +1302,7 @@ const mountDashboard = (container, context, controller, mountContext) => {
           ].map(([value, label]) => ({ value, label })),
         },
       ],
-      empty: visible.length === 0 ? { title: statusMessage(visible) } : null,
+      empty: null,
       onAction(id) {
         if (id === "refresh") void controller.refresh();
       },
@@ -1114,7 +1325,16 @@ const mountDashboard = (container, context, controller, mountContext) => {
       state.priority = priorityFilter.select.value;
       state.groupBy = groupFilter.select.value;
     }
+    if (!visibleMonth) visibleMonth = monthKeyFromDate(state.onDate ?? today);
     const visible = filterTasks(controller.tasks, state, today);
+    calendar.update({
+      month: visibleMonth,
+      onDate: state.onDate,
+      today,
+      counts: countTasksByDate(controller.tasks, state, today),
+    });
+    message.textContent = statusMessage(visible);
+    message.hidden = !message.textContent;
     if (!hasShell) {
       summary.textContent = text.summary(visible.length, controller.tasks.length);
       for (const [view, button] of viewButtons) {
@@ -1123,7 +1343,6 @@ const mountDashboard = (container, context, controller, mountContext) => {
         button.setAttribute("aria-selected", String(view === state.view));
         button.classList.toggle("is-active", view === state.view);
       }
-      message.textContent = statusMessage(visible);
     }
     publishChrome(visible, today);
     const shown = visible.slice(0, DISPLAY_LIMIT);
@@ -1282,6 +1501,10 @@ const mountDashboard = (container, context, controller, mountContext) => {
     if (typeof stored.groupBy === "string") {
       state.groupBy = stored.groupBy;
       if (groupFilter) groupFilter.select.value = stored.groupBy;
+    }
+    if (typeof stored.onDate === "string" && isDateKey(stored.onDate)) {
+      state.onDate = stored.onDate;
+      visibleMonth = monthKeyFromDate(stored.onDate);
     }
     render();
   });
@@ -1555,11 +1778,13 @@ export default {
     const disposeOpen = context.commands.register({
       id: "open-dashboard",
       title: text.openDashboard,
+      menu: false,
       run: () => context.ui.panels.open("tasks"),
     });
     const disposeInsert = context.commands.register({
       id: "insert-task",
       title: text.insertTask,
+      listed: false,
       async run() {
         try {
           await context.editor.insertAtCursor("- [ ] ");
@@ -1572,6 +1797,7 @@ export default {
     const disposeCreateOrEdit = context.commands.register({
       id: "create-or-edit",
       title: text.createOrEdit,
+      listed: false,
       async run() {
         try {
           const found = await findTaskAtCursor(context, controller.parseOptions());
