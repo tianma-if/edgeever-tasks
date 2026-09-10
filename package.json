@@ -1,6 +1,6 @@
 {
   "name": "edgeever-tasks",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "private": true,
   "type": "module",
   "description": "A Markdown-native task dashboard plugin for EdgeEver.",
