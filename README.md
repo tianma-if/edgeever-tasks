@@ -15,7 +15,7 @@ EdgeEver Tasks keeps tasks inside ordinary notes while providing a unified cross
 - Understands `- [/] In progress` and `- [-] Cancelled` statuses.
 - Ignores task examples inside fenced code blocks and comments.
 - Dashboard views for today, overdue, this week, inbox, open, recurring, done, and cancelled tasks.
-- Month calendar to filter tasks by due, scheduled, start, completed, or cancelled date.
+- Native date picker to filter tasks by due, scheduled, start, completed, or cancelled date.
 - Filters by keyword, priority, and grouping (due date, priority, note, or heading).
 - Compatible with Obsidian Tasks-style metadata: dates (`🛫`, `⏳`, `📅`, `✅`, `➕`, `❌`), priorities, recurrence (`🔁`), ids (`🆔`), and dependencies (`⛔`).
 - Completes a task with an optional done date and creates the next recurring occurrence.

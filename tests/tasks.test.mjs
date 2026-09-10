@@ -1,9 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   addCalendarDays,
-  addCalendarMonths,
   compareTasks,
-  countTasksByDate,
   createTaskController,
   createTaskIndex,
   createTaskSaveEdits,
@@ -16,8 +14,6 @@ import {
   lineBoundsAt,
   localDateKey,
   matchesView,
-  monthGrid,
-  monthKeyFromDate,
   nextRecurrenceDate,
   parseRecurrenceRule,
   parseTaskLine,
@@ -363,26 +359,5 @@ describe("recurrence and views", () => {
       .toEqual(["Dropped"]);
     expect(filterTasks(tasks, { view: "open", onDate: "2026-09-11" }, today).map((task) => task.description))
       .toEqual(["Tomorrow"]);
-  });
-
-  test("calendar month grid and per-day counts follow the current view", () => {
-    expect(monthKeyFromDate("2026-09-10")).toBe("2026-09");
-    expect(addCalendarMonths("2026-09", 1)).toBe("2026-10");
-    expect(addCalendarMonths("2026-01", -1)).toBe("2025-12");
-    const mondayFirst = monthGrid("2026-09", { weekStartsOn: 1 });
-    expect(mondayFirst).toHaveLength(35);
-    expect(mondayFirst[0]).toMatchObject({ date: "2026-08-31", inMonth: false });
-    expect(mondayFirst.find((cell) => cell.date === "2026-09-01")).toMatchObject({ day: 1, inMonth: true, weekday: 2 });
-    const sundayFirst = monthGrid("2026-09", { weekStartsOn: 0 });
-    expect(sundayFirst[0].date).toBe("2026-08-30");
-    const tasks = [
-      parseTaskLine("- [ ] Due today 📅 2026-09-10"),
-      parseTaskLine("- [ ] Tomorrow 📅 2026-09-11"),
-      parseTaskLine("- [x] Finished ✅ 2026-09-10"),
-    ];
-    const counts = countTasksByDate(tasks, { view: "open", onDate: "2026-09-11" }, "2026-09-10");
-    expect(counts.get("2026-09-10")).toBe(1);
-    expect(counts.get("2026-09-11")).toBe(1);
-    expect(counts.has("2026-09-12")).toBe(false);
   });
 });
