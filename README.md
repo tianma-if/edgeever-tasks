@@ -17,7 +17,7 @@ EdgeEver Tasks keeps tasks inside ordinary notes while providing a unified cross
 - Dashboard views for today, overdue, this week, inbox, open, recurring, done, and cancelled tasks.
 - Compact month calendar marks days that have tasks and filters the dashboard by date.
 - Filters by keyword, priority, and grouping (due date, priority, note, or heading).
-- Compatible with Obsidian Tasks-style metadata: dates (`🛫`, `⏳`, `📅`, `✅`, `➕`, `❌`), priorities, recurrence (`🔁`), ids (`🆔`), and dependencies (`⛔`).
+- Writes dates and other fields as quiet text, for example `[due:: 2026-09-10]`, and still reads Obsidian Tasks emoji lines.
 - Completes a task with an optional done date and creates the next recurring occurrence.
 - Create or edit description, dates, priority, status, and recurrence from a dialog — from the dashboard or the current editor line.
 - Opens the source note from any dashboard row.
@@ -47,22 +47,25 @@ GitHub installation requires a published Release matching the version in `manife
 ## Task syntax
 
 ```md
-- [ ] Draft announcement 🔺 📅 2026-09-10
-- [/] Review copy 🔁 every week ⏳ 2026-09-11
-- [x] Publish release ✅ 2026-09-11
-- [-] Dropped approach ❌ 2026-09-09
+- [ ] Draft announcement [priority:: highest] [due:: 2026-09-10]
+- [/] Review copy [repeat:: every week] [scheduled:: 2026-09-11]
+- [x] Publish release [completion:: 2026-09-11]
+- [-] Dropped approach [cancelled:: 2026-09-09]
 ```
+
+Existing emoji lines such as `📅 2026-09-10` are still read. The plugin writes the text format above unless you switch the setting back to emoji.
 
 The plugin reads standard list checkboxes. Metadata is optional and remains plain Markdown.
 
-Recurring tasks need a due, scheduled, or start date. Completing `🔁 every Sunday 📅 2021-04-25` inserts the next occurrence and appends `✅` on the completed line.
+Recurring tasks need a due, scheduled, or start date. Completing `[repeat:: every Sunday] [due:: 2021-04-25]` inserts the next occurrence and writes a completion date.
 
 ## Settings
 
 - **Global filter** — only index checklist items that contain this string, for example `#task`.
-- **Write done date on completion** — append `✅ YYYY-MM-DD` (on by default).
-- **Write cancelled date** — append `❌ YYYY-MM-DD` (on by default).
-- **Write created date on new tasks** — append `➕ YYYY-MM-DD` when creating from the edit dialog.
+- **Task metadata format** — write `[due:: YYYY-MM-DD]` (default) or Obsidian Tasks emoji.
+- **Write done date on completion** — write a completion date when a task is marked done (on by default).
+- **Write cancelled date** — write a cancelled date when a task is cancelled (on by default).
+- **Write created date on new tasks** — write a created date when creating from the edit dialog.
 - **Next recurring task** — insert the new occurrence above or below the completed task.
 
 ## Development

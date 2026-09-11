@@ -22,25 +22,42 @@
         "description": "Only index checklist items that contain this string, for example #task. Leave empty to treat every checklist item as a task."
       },
       {
+        "key": "task-format",
+        "type": "select",
+        "label": "Task metadata format",
+        "default": "dataview",
+        "description": "How the plugin writes dates and other fields. Existing emoji lines are still read.",
+        "options": [
+          {
+            "value": "dataview",
+            "label": "Text fields [due:: YYYY-MM-DD]"
+          },
+          {
+            "value": "emoji",
+            "label": "Obsidian Tasks emoji (📅)"
+          }
+        ]
+      },
+      {
         "key": "set-done-date",
         "type": "boolean",
         "label": "Write done date on completion",
         "default": true,
-        "description": "Append ✅ YYYY-MM-DD when a task is marked done."
+        "description": "Write a done date when a task is marked done."
       },
       {
         "key": "set-cancelled-date",
         "type": "boolean",
         "label": "Write cancelled date",
         "default": true,
-        "description": "Append ❌ YYYY-MM-DD when a task is cancelled."
+        "description": "Write a cancelled date when a task is cancelled."
       },
       {
         "key": "set-created-date",
         "type": "boolean",
         "label": "Write created date on new tasks",
         "default": false,
-        "description": "Append ➕ YYYY-MM-DD when creating a task from the edit dialog."
+        "description": "Write a created date when creating a task from the edit dialog."
       },
       {
         "key": "recurrence-insert",

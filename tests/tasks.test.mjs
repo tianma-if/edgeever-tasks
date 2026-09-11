@@ -127,6 +127,25 @@ describe("EdgeEver Tasks", () => {
     });
   });
 
+  test("parses Dataview text fields and still reads emoji lines", () => {
+    expect(parseTaskLine("- [ ] Ship [priority:: high] [due:: 2026-09-12] [id:: design]")).toMatchObject({
+      description: "Ship",
+      due: "2026-09-12",
+      id: "design",
+      priority: { name: "high" },
+    });
+    expect(parseTaskLine("- [x] Done (completion:: 2026-09-09) (due:: 2026-09-10)")).toMatchObject({
+      due: "2026-09-10",
+      completedDate: "2026-09-09",
+      description: "Done",
+    });
+    expect(parseTaskLine("- [ ] Mix [due:: 2026-09-12] ⏳ 2026-09-11")).toMatchObject({
+      due: "2026-09-12",
+      scheduled: "2026-09-11",
+      description: "Mix",
+    });
+  });
+
   test("parses recurrence, tags, headings, and block links", () => {
     const tasks = parseTasksFromNote(note({
       contentMarkdown: "# Launch\n- [ ] Ship #work 🔁 every Sunday 📅 2026-09-13 ^abc",
@@ -173,7 +192,7 @@ describe("EdgeEver Tasks", () => {
     const source = note({ contentMarkdown: "- [ ] Ship 📅 2026-09-10" });
     const task = parseTasksFromNote(source)[0];
     const markdown = applyEdits(source.contentMarkdown, createTaskToggleEdits(source, task, { today: "2026-09-09", setDoneDate: true }));
-    expect(markdown).toBe("- [x] Ship 📅 2026-09-10 ✅ 2026-09-09");
+    expect(markdown).toBe("- [x] Ship [due:: 2026-09-10] [completion:: 2026-09-09]");
   });
 
   test("completing a recurring task inserts the next occurrence", () => {
@@ -184,14 +203,14 @@ describe("EdgeEver Tasks", () => {
       setDoneDate: true,
       recurrenceInsert: "before",
     }));
-    expect(markdown).toBe("- [ ] trash 🔁 every Sunday 📅 2021-05-02\n- [x] trash 🔁 every Sunday 📅 2021-04-25 ✅ 2021-04-24");
+    expect(markdown).toBe("- [ ] trash [repeat:: every Sunday] [due:: 2021-05-02]\n- [x] trash [repeat:: every Sunday] [due:: 2021-04-25] [completion:: 2021-04-24]");
   });
 
   test("reopening a task removes the done date", () => {
     const source = note({ contentMarkdown: "- [x] Ship 📅 2026-09-10 ✅ 2026-09-09" });
     const task = parseTasksFromNote(source)[0];
     const markdown = applyEdits(source.contentMarkdown, createTaskToggleEdits(source, task, { today: "2026-09-09" }));
-    expect(markdown).toBe("- [ ] Ship 📅 2026-09-10");
+    expect(markdown).toBe("- [ ] Ship [due:: 2026-09-10]");
   });
 
   test("saving an edited task preserves id and updates dates", () => {
@@ -202,7 +221,7 @@ describe("EdgeEver Tasks", () => {
       due: "2026-09-12",
       priority: { rank: 4, name: "high", marker: "⏫" },
     }));
-    expect(markdown).toBe("- [ ] Review copy ⏫ 📅 2026-09-12 🆔 design");
+    expect(markdown).toBe("- [ ] Review copy [priority:: high] [due:: 2026-09-12] [id:: design]");
   });
 
   test("rejects a recurrence rule without a date", () => {
@@ -293,8 +312,10 @@ describe("recurrence and views", () => {
   });
 
   test("round-trips a formatted task line", () => {
-    const original = "- [ ] Ship #work 🔺 🔁 every week 📅 2026-09-10 🆔 abc ^link";
-    expect(formatTaskLine(parseTaskLine(original))).toBe(original);
+    const emoji = "- [ ] Ship #work 🔺 🔁 every week 📅 2026-09-10 🆔 abc ^link";
+    expect(formatTaskLine(parseTaskLine(emoji), { taskFormat: "emoji" })).toBe(emoji);
+    const dataview = "- [ ] Ship #work [priority:: highest] [repeat:: every week] [due:: 2026-09-10] [id:: abc] ^link";
+    expect(formatTaskLine(parseTaskLine(dataview))).toBe(dataview);
   });
 
   test("sorts unprioritized tasks between medium and low", () => {

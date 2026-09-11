@@ -42,6 +42,7 @@ const DEFAULT_SETTINGS = {
   setCancelledDate: true,
   setCreatedDate: false,
   recurrenceInsert: "before",
+  taskFormat: "dataview",
 };
 const DEFAULT_DASHBOARD_STATE = {
   view: "open",
@@ -52,7 +53,16 @@ const DEFAULT_DASHBOARD_STATE = {
 };
 const VIEWS = ["today", "overdue", "week", "inbox", "open", "recurring", "done", "cancelled", "all"];
 const DATE_TOKEN = "\\d{4}-\\d{2}-\\d{2}";
-const SIGNIFIER_LOOKAHEAD = `(?=\\s+(?:🛫|⏳|📅|✅|➕|❌|⛔|🆔|🏁)(?:\\s|$)|$)`;
+const SIGNIFIER_LOOKAHEAD = `(?=\\s+(?:🛫|⏳|📅|✅|➕|❌|⛔|🆔|🏁|[\\[(])(?:\\s|$)|$)`;
+const DATAVIEW_DATE_FIELDS = {
+  start: "start",
+  scheduled: "scheduled",
+  due: "due",
+  completed: "completion",
+  created: "created",
+  cancelled: "cancelled",
+};
+const PRIORITY_BY_NAME = Object.fromEntries(PRIORITIES.map(([marker, rank, name]) => [name, { rank, name, marker }]));
 
 const copy = {
   en: {
@@ -499,17 +509,40 @@ export const shiftTaskDates = (task, today = localDateKey()) => {
   };
 };
 
+const takeDataviewField = (rest, key) => takeMatch(
+  rest,
+  new RegExp(`\\s*[\\[(]${key}::\\s*([^\\]\\)]+?)[\\])]`, "iu"),
+);
+
 const extractMetadata = (body) => {
   let rest = body;
   const blockLink = takeMatch(rest, /\s+(\^[A-Za-z0-9-]+)\s*$/u);
   rest = blockLink.body;
+  const dataview = {};
+  for (const [name, key] of Object.entries(DATAVIEW_DATE_FIELDS)) {
+    const taken = takeMatch(rest, new RegExp(`\\s*[\\[(]${key}::\\s*(${DATE_TOKEN})[\\])]`, "iu"));
+    rest = taken.body;
+    dataview[name] = taken.value;
+  }
+  const dataviewRepeat = takeDataviewField(rest, "repeat");
+  rest = dataviewRepeat.body;
+  const dataviewId = takeDataviewField(rest, "id");
+  rest = dataviewId.body;
+  const dataviewDepends = takeDataviewField(rest, "dependsOn");
+  rest = dataviewDepends.body;
+  const dataviewOnCompletion = takeDataviewField(rest, "onCompletion");
+  rest = dataviewOnCompletion.body;
+  const dataviewPriority = takeDataviewField(rest, "priority");
+  rest = dataviewPriority.body;
   const dates = {};
   for (const [name, marker] of Object.entries(DATE_MARKERS)) {
     const taken = takeMatch(rest, new RegExp(`\\s*${marker}\\s*(${DATE_TOKEN})`, "u"));
     rest = taken.body;
     dates[name] = taken.value;
   }
-  const legacyCancelled = !dates.cancelled ? takeMatch(rest, new RegExp(`\\s*${LEGACY_CANCELLED_MARKER}\\s*(${DATE_TOKEN})(?!\\S)`, "u")) : { body: rest, value: null };
+  const legacyCancelled = !dataview.cancelled && !dates.cancelled
+    ? takeMatch(rest, new RegExp(`\\s*${LEGACY_CANCELLED_MARKER}\\s*(${DATE_TOKEN})(?!\\S)`, "u"))
+    : { body: rest, value: null };
   rest = legacyCancelled.body;
   const id = takeMatch(rest, new RegExp(`\\s*${ID_MARKER}\\s+([A-Za-z0-9_-]+)`, "u"));
   rest = id.body;
@@ -519,49 +552,69 @@ const extractMetadata = (body) => {
   rest = onCompletion.body;
   const recurrence = takeMatch(rest, new RegExp(`\\s*${RECURRENCE_MARKER}\\s+(.+?)${SIGNIFIER_LOOKAHEAD}`, "u"));
   rest = recurrence.body;
-  const priority = PRIORITIES.find(([marker]) => rest.includes(marker));
-  if (priority) rest = rest.replaceAll(priority[0], " ");
+  const emojiPriority = PRIORITIES.find(([marker]) => rest.includes(marker));
+  if (emojiPriority) rest = rest.replaceAll(emojiPriority[0], " ");
+  const priorityName = dataviewPriority.value?.trim().toLowerCase();
+  const priority = (priorityName && PRIORITY_BY_NAME[priorityName])
+    || (emojiPriority ? { rank: emojiPriority[1], name: emojiPriority[2], marker: emojiPriority[0] } : null);
   const tags = [...rest.matchAll(/(?<!\S)#([^\s#]+)/gu)].map((match) => `#${match[1]}`);
   return {
     description: rest.replace(/\s+/gu, " ").trim() || body.trim(),
-    start: dates.start,
-    scheduled: dates.scheduled,
-    due: dates.due,
-    completedDate: dates.completed,
-    created: dates.created,
-    cancelledDate: dates.cancelled ?? legacyCancelled.value,
-    recurrence: recurrence.value?.trim() ?? null,
-    id: id.value,
-    dependsOn: dependsOn.value?.replace(/\s+/gu, "") ?? null,
-    onCompletion: onCompletion.value?.toLowerCase() ?? null,
+    start: dataview.start ?? dates.start,
+    scheduled: dataview.scheduled ?? dates.scheduled,
+    due: dataview.due ?? dates.due,
+    completedDate: dataview.completed ?? dates.completed,
+    created: dataview.created ?? dates.created,
+    cancelledDate: dataview.cancelled ?? dates.cancelled ?? legacyCancelled.value,
+    recurrence: dataviewRepeat.value?.trim() || recurrence.value?.trim() || null,
+    id: dataviewId.value?.trim() || id.value,
+    dependsOn: (dataviewDepends.value || dependsOn.value)?.replace(/\s+/gu, "") || null,
+    onCompletion: (dataviewOnCompletion.value || onCompletion.value)?.trim().toLowerCase() || null,
     blockLink: blockLink.value ?? null,
     tags,
-    priority: priority ? { rank: priority[1], name: priority[2], marker: priority[0] } : null,
+    priority,
   };
 };
 
-export const formatTaskBody = (task) => {
+const dataviewField = (key, value) => `[${key}:: ${value}]`;
+
+export const formatTaskBody = (task, options = {}) => {
+  const format = options.taskFormat === "emoji" ? "emoji" : "dataview";
   const chunks = [task.description?.trim() ?? ""];
-  if (task.priority?.marker) chunks.push(task.priority.marker);
-  if (task.recurrence) chunks.push(`${RECURRENCE_MARKER} ${task.recurrence}`);
-  if (task.created) chunks.push(`${DATE_MARKERS.created} ${task.created}`);
-  if (task.start) chunks.push(`${DATE_MARKERS.start} ${task.start}`);
-  if (task.scheduled) chunks.push(`${DATE_MARKERS.scheduled} ${task.scheduled}`);
-  if (task.due) chunks.push(`${DATE_MARKERS.due} ${task.due}`);
-  if (task.completedDate) chunks.push(`${DATE_MARKERS.completed} ${task.completedDate}`);
-  if (task.cancelledDate) chunks.push(`${DATE_MARKERS.cancelled} ${task.cancelledDate}`);
-  if (task.id) chunks.push(`${ID_MARKER} ${task.id}`);
-  if (task.dependsOn) chunks.push(`${DEPENDS_MARKER} ${task.dependsOn}`);
-  if (task.onCompletion) chunks.push(`${ON_COMPLETION_MARKER} ${task.onCompletion}`);
+  if (format === "dataview") {
+    if (task.priority?.name) chunks.push(dataviewField("priority", task.priority.name));
+    if (task.recurrence) chunks.push(dataviewField("repeat", task.recurrence));
+    if (task.created) chunks.push(dataviewField("created", task.created));
+    if (task.start) chunks.push(dataviewField("start", task.start));
+    if (task.scheduled) chunks.push(dataviewField("scheduled", task.scheduled));
+    if (task.due) chunks.push(dataviewField("due", task.due));
+    if (task.completedDate) chunks.push(dataviewField("completion", task.completedDate));
+    if (task.cancelledDate) chunks.push(dataviewField("cancelled", task.cancelledDate));
+    if (task.id) chunks.push(dataviewField("id", task.id));
+    if (task.dependsOn) chunks.push(dataviewField("dependsOn", task.dependsOn));
+    if (task.onCompletion) chunks.push(dataviewField("onCompletion", task.onCompletion));
+  } else {
+    if (task.priority?.marker) chunks.push(task.priority.marker);
+    if (task.recurrence) chunks.push(`${RECURRENCE_MARKER} ${task.recurrence}`);
+    if (task.created) chunks.push(`${DATE_MARKERS.created} ${task.created}`);
+    if (task.start) chunks.push(`${DATE_MARKERS.start} ${task.start}`);
+    if (task.scheduled) chunks.push(`${DATE_MARKERS.scheduled} ${task.scheduled}`);
+    if (task.due) chunks.push(`${DATE_MARKERS.due} ${task.due}`);
+    if (task.completedDate) chunks.push(`${DATE_MARKERS.completed} ${task.completedDate}`);
+    if (task.cancelledDate) chunks.push(`${DATE_MARKERS.cancelled} ${task.cancelledDate}`);
+    if (task.id) chunks.push(`${ID_MARKER} ${task.id}`);
+    if (task.dependsOn) chunks.push(`${DEPENDS_MARKER} ${task.dependsOn}`);
+    if (task.onCompletion) chunks.push(`${ON_COMPLETION_MARKER} ${task.onCompletion}`);
+  }
   if (task.blockLink) chunks.push(task.blockLink);
   return chunks.filter((chunk, index) => index === 0 || Boolean(chunk)).join(" ").trim();
 };
 
-export const formatTaskLine = (task) => {
+export const formatTaskLine = (task, options = {}) => {
   const prefix = task.linePrefix ?? "- [";
   const after = task.afterCheckbox ?? "] ";
   const status = task.status ?? (task.completed ? "done" : "todo");
-  return `${prefix}${STATUS_CHARS[status] ?? " "}${after}${formatTaskBody(task)}`.replace(/[ \t]+$/u, "");
+  return `${prefix}${STATUS_CHARS[status] ?? " "}${after}${formatTaskBody(task, options)}`.replace(/[ \t]+$/u, "");
 };
 
 export const parseTaskLine = (line, location = {}, options = {}) => {
@@ -704,7 +757,7 @@ const nextOccurrenceLine = (task, options) => {
     created: options.setCreatedDate ? (options.today ?? localDateKey()) : null,
     id: null,
     dependsOn: null,
-  });
+  }, options);
 };
 
 export const createTaskSaveEdits = (note, scannedTask, nextFields = {}, options = {}) => {
@@ -715,7 +768,7 @@ export const createTaskSaveEdits = (note, scannedTask, nextFields = {}, options 
   if (merged.recurrence && !merged.due && !merged.scheduled && !merged.start) {
     throw new Error("TASK_RECURRENCE_NEEDS_DATE");
   }
-  const nextLine = formatTaskLine(merged);
+  const nextLine = formatTaskLine(merged, options);
   const edits = [];
   if (nextLine !== current.rawLine) edits.push({ from: current.from, to: current.to, insert: nextLine });
   const completing = nextStatus === "done" && current.status !== "done";
@@ -890,6 +943,7 @@ const readPluginSettings = async (context) => {
     setCancelledDate: await readBoolean("set-cancelled-date", true),
     setCreatedDate: await readBoolean("set-created-date", false),
     recurrenceInsert: (await context.settings.get("recurrence-insert")) === "after" ? "after" : "before",
+    taskFormat: (await context.settings.get("task-format")) === "emoji" ? "emoji" : "dataview",
   };
 };
 
@@ -1396,37 +1450,37 @@ const mountDashboard = (container, context, controller, mountContext) => {
         if (task.due) {
           const due = document.createElement("span");
           due.className = taskDueCategory(task, today) === "overdue" ? "is-overdue" : "";
-          due.textContent = `📅 ${task.due}`;
+          due.textContent = `${text.fields.due} ${task.due}`;
           metadata.append(due);
         }
         if (task.scheduled) {
           const scheduled = document.createElement("span");
-          scheduled.textContent = `⏳ ${task.scheduled}`;
+          scheduled.textContent = `${text.fields.scheduled} ${task.scheduled}`;
           metadata.append(scheduled);
         }
         if (task.start) {
           const start = document.createElement("span");
-          start.textContent = `🛫 ${task.start}`;
+          start.textContent = `${text.fields.start} ${task.start}`;
           metadata.append(start);
         }
         if (task.priority) {
           const priority = document.createElement("span");
-          priority.textContent = `${task.priority.marker} ${text.priorities[task.priority.name]}`;
+          priority.textContent = `${text.priority} ${text.priorities[task.priority.name]}`;
           metadata.append(priority);
         }
         if (task.recurrence) {
           const recurrence = document.createElement("span");
-          recurrence.textContent = `🔁 ${task.recurrence}`;
+          recurrence.textContent = `${text.fields.recurrence} ${task.recurrence}`;
           metadata.append(recurrence);
         }
         if (task.completedDate) {
           const done = document.createElement("span");
-          done.textContent = `✅ ${task.completedDate}`;
+          done.textContent = `${text.statuses.done} ${task.completedDate}`;
           metadata.append(done);
         }
         if (task.cancelledDate) {
           const cancelled = document.createElement("span");
-          cancelled.textContent = `❌ ${task.cancelledDate}`;
+          cancelled.textContent = `${text.statuses.cancelled} ${task.cancelledDate}`;
           metadata.append(cancelled);
         }
         content.append(description, metadata);
@@ -1696,7 +1750,7 @@ const mountEditor = (container, context, controller, mountContext) => {
           today: localDateKey(),
         }));
       } else {
-        const line = formatTaskLine({ ...fields, linePrefix: "- [", afterCheckbox: "] " });
+        const line = formatTaskLine({ ...fields, linePrefix: "- [", afterCheckbox: "] " }, controller.settings);
         await context.editor.insertAtCursor(line);
       }
       context.ui.showNotice(text.saved);
