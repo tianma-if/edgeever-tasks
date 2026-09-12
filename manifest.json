@@ -2,7 +2,7 @@
   "type": "plugin",
   "id": "org.edgeever.tasks",
   "name": "Tasks",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "apiVersion": "2",
   "settingsUi": "host",
   "description": "Collects Markdown tasks across notes and links every task back to its source.",
