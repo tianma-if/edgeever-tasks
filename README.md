@@ -44,7 +44,47 @@ https://github.com/tianma-if/edgeever-tasks
 
 GitHub installation requires a published Release matching the version in `manifest.json`. The release must contain `manifest.json`, `main.js`, and `styles.css` as assets. Pushing `main` publishes that Release automatically if it does not already exist.
 
+## How to use
+
+Tasks live in notes. The plugin only scans and updates those checklist lines; it does not keep a separate task database.
+
+### Open the dashboard
+
+After the plugin is enabled, open **Tasks** from the plugin puzzle menu, or run **Open task dashboard**. The panel lists tasks from every note.
+
+### Create a task
+
+Any of these works:
+
+- In a note, write a normal checklist item: `- [ ] Call the printer shop`.
+- With the cursor in a note, run **Insert task at cursor**.
+- From the dashboard, use **Create or edit task**. Fill in the description and optional dates there; you do not have to type `[due:: …]` by hand.
+
+Dates, priority, and recurrence are optional. A line with no date goes to **Inbox**. Recurring tasks need a due, scheduled, or start date so the plugin knows the next occurrence.
+
+In the EdgeEver editor, fields such as `[due:: 2026-09-10]` render as compact chips. Click a chip to edit the raw field. Markdown source still stores the text.
+
+### Work from the dashboard
+
+- **Views** — Today, Overdue, This week, Inbox, Open, Recurring, Done, Cancelled, All. Switching a view clears the calendar day filter so the tab shows that whole collection.
+- **Calendar** — Days with tasks show a dot. Click a day to see only that date. **Today** and **All dates** jump back out of a day filter.
+- **Search, priority, grouping** — Narrow the list, or group by due date, priority, note, or heading.
+- **Complete** — Tick the checkbox on a row. The source note is updated in place. Recurring tasks insert the next occurrence automatically.
+- **Edit** — Open the dialog from a row to change dates, priority, status, or recurrence.
+- **Jump to the note** — Click the task title (or press Enter on a focused row) to open the source.
+
+### Statuses in the note
+
+| Markdown | Meaning |
+| --- | --- |
+| `- [ ]` | To do |
+| `- [/]` | In progress |
+| `- [x]` | Done |
+| `- [-]` | Cancelled |
+
 ## Task syntax
+
+Fields sit on the same line, after the description. All of them are optional. Prefer the create/edit dialog if you do not want to type the markup.
 
 ```md
 - [ ] Draft announcement [priority:: highest] [due:: 2026-09-10]
@@ -53,11 +93,43 @@ GitHub installation requires a published Release matching the version in `manife
 - [-] Dropped approach [cancelled:: 2026-09-09]
 ```
 
-Existing emoji lines such as `📅 2026-09-10` are still read. The plugin writes the text format above unless you switch the setting back to emoji.
+The plugin writes `[key:: value]` by default. Parentheses such as `(due:: 2026-09-10)` are also read. Existing Obsidian Tasks emoji lines are still read; switch **Task metadata format** to emoji if you want the plugin to write those instead.
 
-The plugin reads standard list checkboxes. Metadata is optional and remains plain Markdown.
+### Fields
 
-Recurring tasks need a due, scheduled, or start date. Completing `[repeat:: every Sunday] [due:: 2021-04-25]` inserts the next occurrence and writes a completion date.
+Dates use `YYYY-MM-DD`.
+
+| Field | Meaning | Example |
+| --- | --- | --- |
+| `[due:: …]` | Due date | `[due:: 2026-09-10]` |
+| `[scheduled:: …]` | Day you plan to work on it | `[scheduled:: 2026-09-11]` |
+| `[start:: …]` | Do not start before this day | `[start:: 2026-09-11]` |
+| `[completion:: …]` | Done date | `[completion:: 2026-09-11]` |
+| `[created:: …]` | Created date | `[created:: 2026-09-01]` |
+| `[cancelled:: …]` | Cancelled date | `[cancelled:: 2026-09-09]` |
+| `[priority:: …]` | `highest` `high` `medium` `low` `lowest` | `[priority:: high]` |
+| `[repeat:: …]` | Recurrence rule | `[repeat:: every week]` |
+| `[id:: …]` | Task id | `[id:: screenshots]` |
+| `[dependsOn:: …]` | Ids this task waits on | `[dependsOn:: screenshots]` |
+| `[onCompletion:: …]` | `delete` or `keep` | `[onCompletion:: delete]` |
+
+Recurring tasks need a due, scheduled, or start date. Completing `[repeat:: every Sunday] [due:: 2021-04-25]` inserts the next occurrence and writes a completion date. Common rules: `every day`, `every weekday`, `every week`, `every Sunday`, `every month`, `every year`, `every week when done`.
+
+### Emoji lines still read
+
+| Emoji | Same as |
+| --- | --- |
+| 📅 | `[due:: …]` |
+| ⏳ | `[scheduled:: …]` |
+| 🛫 | `[start:: …]` |
+| ✅ | `[completion:: …]` |
+| ➕ | `[created:: …]` |
+| ❌ | `[cancelled:: …]` |
+| 🔺⏫🔼🔽⏬ | `[priority:: …]` |
+| 🔁 | `[repeat:: …]` |
+| 🆔 | `[id:: …]` |
+| ⛔ | `[dependsOn:: …]` |
+| 🏁 | `[onCompletion:: …]` |
 
 ## Settings
 
