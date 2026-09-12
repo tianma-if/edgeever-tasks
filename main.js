@@ -143,9 +143,9 @@ const copy = {
     previousMonth: "Previous month",
     nextMonth: "Next month",
     allDates: "All dates",
+    showAllDates: "Show all dates",
     weekdays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-    showingDate: (date) => `Tasks on ${date}`,
-    emptyOnDate: (date) => `No tasks on ${date}.`,
+    emptyOnDate: "No tasks on this date.",
     recurrenceHints: ["every day", "every weekday", "every week", "every month", "every month on the last", "every year"],
     save: "Save",
     cancel: "Cancel",
@@ -231,9 +231,9 @@ const copy = {
     previousMonth: "上个月",
     nextMonth: "下个月",
     allDates: "全部日期",
+    showAllDates: "查看全部日期",
     weekdays: ["日", "一", "二", "三", "四", "五", "六"],
-    showingDate: (date) => `正在查看 ${date} 的任务`,
-    emptyOnDate: (date) => `没有 ${date} 的任务。`,
+    emptyOnDate: "这一天没有任务。",
     recurrenceHints: ["every day", "every weekday", "every week", "every month", "every month on the last", "every year"],
     save: "保存",
     cancel: "取消",
@@ -896,6 +896,9 @@ export const countTasksByDate = (tasks, query, today) => {
   return counts;
 };
 
+export const countTasksForView = (tasks, query, view, today) =>
+  filterTasks(tasks, { ...query, view, search: "", priority: "all", onDate: null }, today).length;
+
 export const groupTasks = (tasks, groupBy, today, text) => {
   if (!groupBy || groupBy === "none") return [{ key: "", label: "", tasks }];
   const buckets = new Map();
@@ -1127,9 +1130,7 @@ const createCalendar = (text, { weekStartsOn, locale, onSelect, onMonth }) => {
   const grid = document.createElement("div");
   grid.className = "edgeever-tasks__calendar-grid";
   grid.setAttribute("role", "grid");
-  const caption = document.createElement("p");
-  caption.className = "edgeever-tasks__calendar-caption";
-  root.append(header, actions, weekdays, grid, caption);
+  root.append(header, actions, weekdays, grid);
   let month = null;
   let today = null;
   prev.addEventListener("click", () => {
@@ -1146,10 +1147,8 @@ const createCalendar = (text, { weekStartsOn, locale, onSelect, onMonth }) => {
     month = nextState.month;
     today = nextState.today;
     title.textContent = formatMonthTitle(month, locale);
-    clear.disabled = !nextState.onDate;
-    caption.textContent = nextState.onDate
-      ? text.showingDate(formatDisplayDate(nextState.onDate, locale))
-      : text.allDates;
+    todayButton.classList.toggle("is-active", nextState.onDate === today);
+    clear.classList.toggle("is-active", !nextState.onDate);
     grid.replaceChildren();
     for (const cell of monthGrid(month, { weekStartsOn })) {
       const button = document.createElement("button");
@@ -1197,6 +1196,9 @@ const mountDashboard = (container, context, controller, mountContext) => {
   list.className = "edgeever-tasks__list";
   let summary;
   let message;
+  let empty;
+  let emptyText;
+  let emptyAction;
   let search;
   let priorityFilter;
   let groupFilter;
@@ -1219,9 +1221,30 @@ const mountDashboard = (container, context, controller, mountContext) => {
   });
   message = document.createElement("p");
   message.className = "edgeever-tasks__message";
+  empty = document.createElement("div");
+  empty.className = "edgeever-tasks__empty";
+  empty.hidden = true;
+  emptyText = document.createElement("p");
+  emptyText.className = "edgeever-tasks__empty-text";
+  emptyAction = document.createElement("button");
+  emptyAction.type = "button";
+  emptyAction.className = "edgeever-tasks__empty-action";
+  emptyAction.textContent = text.showAllDates;
+  emptyAction.addEventListener("click", () => {
+    state.onDate = null;
+    persistState();
+    render();
+  });
+  empty.append(emptyText, emptyAction);
+  const main = document.createElement("div");
+  main.className = "edgeever-tasks__main";
+  main.append(message, empty, list);
+  const body = document.createElement("div");
+  body.className = "edgeever-tasks__body";
+  body.append(calendar.root, main);
   if (hasShell) {
     root.classList.add("edgeever-tasks--host-chrome");
-    root.append(calendar.root, message, list);
+    root.append(body);
   } else {
     const header = document.createElement("header");
     header.className = "edgeever-tasks__header";
@@ -1268,7 +1291,7 @@ const mountDashboard = (container, context, controller, mountContext) => {
     ]);
     groupFilter.select.value = state.groupBy;
     toolbar.append(search, priorityFilter.label, groupFilter.label);
-    root.append(header, views, toolbar, calendar.root, message, list);
+    root.append(header, views, toolbar, body);
   }
   container.append(root);
 
@@ -1294,16 +1317,16 @@ const mountDashboard = (container, context, controller, mountContext) => {
     }
   };
 
-  const statusMessage = (visible) => {
+  const bannerMessage = (visible) => {
     if (controller.loading) return text.loading;
     if (controller.error) return text.scanFailed;
-    if (visible.length === 0) {
-      return isDateKey(state.onDate)
-        ? text.emptyOnDate(formatDisplayDate(state.onDate, locale))
-        : text.empty;
-    }
     if (visible.length > DISPLAY_LIMIT) return text.truncated(DISPLAY_LIMIT, visible.length);
     return "";
+  };
+
+  const emptyMessage = (visible) => {
+    if (controller.loading || controller.error || visible.length > 0) return "";
+    return isDateKey(state.onDate) ? text.emptyOnDate : text.empty;
   };
 
   const publishChrome = (visible, today) => {
@@ -1311,12 +1334,9 @@ const mountDashboard = (container, context, controller, mountContext) => {
     mountContext.shell.set({
       header: {
         title: text.panelTitle,
-        description: [
-          visible.length > DISPLAY_LIMIT
-            ? text.truncated(DISPLAY_LIMIT, visible.length)
-            : text.summary(visible.length, controller.tasks.length),
-          isDateKey(state.onDate) ? formatDisplayDate(state.onDate, locale) : null,
-        ].filter(Boolean).join(" · "),
+        description: visible.length > DISPLAY_LIMIT
+          ? text.truncated(DISPLAY_LIMIT, visible.length)
+          : text.summary(visible.length, controller.tasks.length),
         actions: [{ id: "refresh", label: text.refresh }],
       },
       toolbar: [
@@ -1326,7 +1346,7 @@ const mountDashboard = (container, context, controller, mountContext) => {
           value: state.view,
           options: VIEWS.map((view) => ({
             value: view,
-            label: `${text.views[view]} · ${filterTasks(controller.tasks, { ...state, view, search: "", priority: "all" }, today).length}`,
+            label: `${text.views[view]} · ${countTasksForView(controller.tasks, state, view, today)}`,
           })),
         },
         { type: "search", key: "search", placeholder: text.search, value: state.search },
@@ -1382,12 +1402,19 @@ const mountDashboard = (container, context, controller, mountContext) => {
       today,
       counts: countTasksByDate(controller.tasks, state, today),
     });
-    message.textContent = statusMessage(visible);
-    message.hidden = !message.textContent;
+    const banner = bannerMessage(visible);
+    const emptyCopy = emptyMessage(visible);
+    message.textContent = banner;
+    message.hidden = !banner;
+    emptyText.textContent = emptyCopy;
+    empty.hidden = !emptyCopy;
+    emptyAction.hidden = !emptyCopy || !isDateKey(state.onDate);
+    main.classList.toggle("is-empty", Boolean(emptyCopy));
+    list.hidden = visible.length === 0;
     if (!hasShell) {
       summary.textContent = text.summary(visible.length, controller.tasks.length);
       for (const [view, button] of viewButtons) {
-        const count = filterTasks(controller.tasks, { ...state, view, search: "", priority: "all" }, today).length;
+        const count = countTasksForView(controller.tasks, state, view, today);
         button.textContent = `${text.views[view]} · ${count}`;
         button.setAttribute("aria-selected", String(view === state.view));
         button.classList.toggle("is-active", view === state.view);

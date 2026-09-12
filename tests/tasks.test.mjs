@@ -4,6 +4,7 @@ import {
   addCalendarMonths,
   compareTasks,
   countTasksByDate,
+  countTasksForView,
   createTaskController,
   createTaskIndex,
   createTaskSaveEdits,
@@ -405,5 +406,19 @@ describe("recurrence and views", () => {
     expect(counts.get("2026-09-10")).toBe(1);
     expect(counts.get("2026-09-11")).toBe(1);
     expect(counts.has("2026-09-12")).toBe(false);
+  });
+
+  test("view counts ignore the selected calendar date", () => {
+    const today = "2026-09-12";
+    const tasks = [
+      parseTaskLine("- [ ] Due today 📅 2026-09-10"),
+      parseTaskLine("- [ ] Tomorrow 📅 2026-09-11"),
+      parseTaskLine("- [x] Finished ✅ 2026-09-10"),
+    ];
+    const query = { view: "done", search: "nope", priority: "high", onDate: today };
+    expect(countTasksForView(tasks, query, "open", today)).toBe(2);
+    expect(countTasksForView(tasks, query, "done", today)).toBe(1);
+    expect(countTasksForView(tasks, query, "all", today)).toBe(3);
+    expect(filterTasks(tasks, { view: "done", onDate: today }, today)).toHaveLength(0);
   });
 });

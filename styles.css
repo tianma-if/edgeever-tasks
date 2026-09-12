@@ -1,6 +1,8 @@
 /* EdgeEver Tasks panel */
 .edgeever-tasks {
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   margin: 0 auto;
   max-width: 960px;
   height: 100%;
@@ -17,6 +19,9 @@
 .edgeever-tasks-edit *::before,
 .edgeever-tasks-edit *::after { box-sizing: border-box; }
 
+.edgeever-tasks [hidden],
+.edgeever-tasks-edit [hidden] { display: none !important; }
+
 .edgeever-tasks__header {
   display: flex;
   align-items: flex-start;
@@ -26,7 +31,9 @@
 
 .edgeever-tasks--host-chrome {
   max-width: none;
-  padding: 4px 0 16px;
+  height: 100%;
+  overflow: hidden;
+  padding: 4px 0 0;
 }
 
 .edgeever-tasks__header h2 { margin: 0; font-size: 28px; line-height: 1.2; }
@@ -37,6 +44,8 @@
   color: hsl(var(--muted-foreground, 0 0% 40%));
   font-size: 13px;
 }
+
+.edgeever-tasks__message { margin: 0; }
 
 .edgeever-tasks__views {
   display: flex;
@@ -71,17 +80,55 @@
   margin: 16px 0 0;
 }
 
+.edgeever-tasks__body {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  gap: 24px 32px;
+  align-items: start;
+  flex: 1;
+  min-height: 0;
+  margin-top: 16px;
+}
+
+.edgeever-tasks--host-chrome .edgeever-tasks__body {
+  align-items: stretch;
+  margin-top: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+.edgeever-tasks__main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.edgeever-tasks--host-chrome .edgeever-tasks__main {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 16px;
+}
+
+.edgeever-tasks__main.is-empty { min-height: 280px; }
+
 .edgeever-tasks__calendar {
-  width: 240px;
+  width: 100%;
   max-width: 100%;
-  margin: 16px 0 0;
+  margin: 0;
   padding: 10px;
   border: 1px solid hsl(var(--border, 0 0% 88%));
   border-radius: 12px;
   background: hsl(var(--card, 0 0% 100%));
+  position: sticky;
+  top: 0;
 }
 
-.edgeever-tasks--host-chrome .edgeever-tasks__calendar { margin-top: 0; }
+.edgeever-tasks--host-chrome .edgeever-tasks__calendar {
+  position: static;
+  align-self: start;
+}
 
 .edgeever-tasks__calendar-header {
   display: grid;
@@ -122,6 +169,12 @@
   min-height: 28px;
   padding: 0 8px;
   font-size: 12px;
+}
+
+.edgeever-tasks__calendar .edgeever-tasks-edit__chip.is-active {
+  border-color: #16a06e;
+  background: #16a06e;
+  color: #fff;
 }
 
 .edgeever-tasks__calendar-weekdays,
@@ -179,13 +232,6 @@
 
 .edgeever-tasks__calendar-day.is-selected.has-tasks::after { background: #fff; }
 
-.edgeever-tasks__calendar-caption {
-  margin: 6px 0 0;
-  color: hsl(var(--muted-foreground, 0 0% 40%));
-  font-size: 12px;
-  line-height: 1.35;
-}
-
 .edgeever-tasks input,
 .edgeever-tasks select,
 .edgeever-tasks__refresh,
@@ -218,7 +264,38 @@
 .edgeever-tasks-edit select { padding: 0 28px 0 10px; }
 .edgeever-tasks__refresh,
 .edgeever-tasks__edit { padding: 0 14px; cursor: pointer; }
-.edgeever-tasks__list { display: grid; gap: 18px; margin-top: 14px; }
+.edgeever-tasks__list { display: grid; gap: 18px; margin: 0; }
+.edgeever-tasks__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex: 1;
+  min-height: 220px;
+  padding: 32px 16px;
+  text-align: center;
+}
+.edgeever-tasks__empty-text {
+  margin: 0;
+  color: hsl(var(--muted-foreground, 0 0% 40%));
+  font-size: 14px;
+  line-height: 1.5;
+}
+.edgeever-tasks__empty-action {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid hsl(var(--border, 0 0% 88%));
+  border-radius: 10px;
+  background: hsl(var(--card, 0 0% 100%));
+  color: hsl(var(--card-foreground, 0 0% 13%));
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+.edgeever-tasks__empty-action:hover {
+  background: color-mix(in srgb, #16a06e 12%, transparent);
+}
 .edgeever-tasks__group { display: grid; gap: 8px; }
 .edgeever-tasks__group-title {
   margin: 0;
@@ -342,6 +419,24 @@
 .edgeever-tasks-edit textarea:focus-visible {
   outline: 2px solid #16a06e;
   outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  .edgeever-tasks__body {
+    grid-template-columns: 1fr;
+    overflow: auto;
+    height: auto;
+  }
+  .edgeever-tasks--host-chrome .edgeever-tasks__body { overflow: auto; }
+  .edgeever-tasks__calendar {
+    position: static;
+    width: min(100%, 280px);
+  }
+  .edgeever-tasks--host-chrome .edgeever-tasks__main {
+    overflow: visible;
+    height: auto;
+  }
+  .edgeever-tasks__main.is-empty { min-height: 40vh; }
 }
 
 @media (max-width: 640px) {
