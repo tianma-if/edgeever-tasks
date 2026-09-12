@@ -36,7 +36,7 @@ The index is intentionally memory-only. Restarting EdgeEver performs one initial
 
 ## Install
 
-Open EdgeEver's **Plugin Marketplace**, enter this public repository URL, and install:
+EdgeEver Tasks is an official EdgeEver plugin. After updating EdgeEver, it appears in the Plugin Marketplace with the official auto-update badge. You can also paste this public repository URL and install:
 
 ```text
 https://github.com/tianma-if/edgeever-tasks

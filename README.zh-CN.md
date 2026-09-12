@@ -36,7 +36,7 @@ EdgeEver Tasks 让任务继续保存在普通笔记中，同时提供统一的�
 
 ## 安装
 
-打开 EdgeEver 的「插件市场」，输入下面的公开仓库地址并安装：
+EdgeEver Tasks 是 EdgeEver 官方插件。更新 EdgeEver 后，会在「插件市场」中显示官方自动更新标记。也可以粘贴下面的公开仓库地址安装：
 
 ```text
 https://github.com/tianma-if/edgeever-tasks
