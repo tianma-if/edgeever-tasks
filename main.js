@@ -1376,8 +1376,10 @@ const mountDashboard = (container, context, controller, mountContext) => {
         if (id === "refresh") void controller.refresh();
       },
       onChange(key, value) {
-        if (key === "view" && VIEWS.includes(value)) state.view = value;
-        else if (key === "search") state.search = value;
+        if (key === "view" && VIEWS.includes(value)) {
+          state.view = value;
+          state.onDate = null;
+        } else if (key === "search") state.search = value;
         else if (key === "priority") state.priority = value;
         else if (key === "groupBy") state.groupBy = value;
         else return;
@@ -1558,6 +1560,7 @@ const mountDashboard = (container, context, controller, mountContext) => {
       const button = event.target.closest("[data-view]");
       if (!button) return;
       state.view = button.dataset.view;
+      state.onDate = null;
       persistState();
       render();
     });
