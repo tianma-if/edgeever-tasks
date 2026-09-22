@@ -6,6 +6,16 @@
   "apiVersion": "2",
   "settingsUi": "host",
   "description": "Collects Markdown tasks across notes and links every task back to its source.",
+  "locales": {
+    "zh-CN": {
+      "name": "待办任务",
+      "description": "汇总所有笔记中的 Markdown 任务，并将每项任务链接回原笔记。"
+    },
+    "ja": {
+      "name": "タスク",
+      "description": "ノート内の Markdown タスクをまとめ、各タスクから元のノートへ移動できるようにします。"
+    }
+  },
   "author": "tianma-if",
   "entry": "./main.js",
   "platforms": [

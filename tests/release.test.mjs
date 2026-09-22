@@ -1,7 +1,16 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { bumpSemVer, findExistingReleaseTag, publishMissingRelease, readReleaseVersion, releaseTagFor } from "../scripts/publish-release.mjs";
 
+const manifest = JSON.parse(readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
+
 describe("plugin GitHub releases", () => {
+  test("ships Simplified Chinese and Japanese marketplace descriptions", () => {
+    for (const locale of ["zh-CN", "ja"]) {
+      expect(manifest.locales?.[locale]?.description).toBeTruthy();
+    }
+  });
+
   test("tags marketplace versions as vX.Y.Z", () => {
     expect(releaseTagFor(readReleaseVersion({ version: "0.4.0" }))).toBe("v0.4.0");
     expect(() => readReleaseVersion({ version: "v0.4.0" })).toThrow("SemVer");
