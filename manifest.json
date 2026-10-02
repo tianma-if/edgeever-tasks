@@ -29,15 +29,12 @@
         "type": "text",
         "label": "Global filter",
         "placeholder": "#task",
-        "description": "Only index checklist items that contain this string, for example #task. Leave empty to treat every checklist item as a task.",
         "locales": {
           "zh-CN": {
-            "label": "全局筛选",
-            "description": "仅收录包含此字符串的清单项，例如 #task。留空则将每个清单项都视为任务。"
+            "label": "全局筛选"
           },
           "ja": {
-            "label": "グローバルフィルター",
-            "description": "この文字列を含むチェックリスト項目のみを収集します（例: #task）。空欄の場合はすべての項目をタスクとして扱います。"
+            "label": "グローバルフィルター"
           }
         }
       },
@@ -46,7 +43,6 @@
         "type": "select",
         "label": "Task metadata format",
         "default": "dataview",
-        "description": "How the plugin writes dates and other fields. Existing emoji lines are still read.",
         "options": [
           {
             "value": "dataview",
@@ -60,7 +56,6 @@
         "locales": {
           "zh-CN": {
             "label": "任务元数据格式",
-            "description": "插件写入日期及其他字段的格式。已有的 emoji 格式任务仍可读取。",
             "options": {
               "dataview": "文本字段 [due:: YYYY-MM-DD]",
               "emoji": "Obsidian Tasks 表情符号（📅）"
@@ -68,7 +63,6 @@
           },
           "ja": {
             "label": "タスクのメタデータ形式",
-            "description": "日付などの項目を書き込む形式です。既存の絵文字形式のタスクも読み取れます。",
             "options": {
               "dataview": "テキスト項目 [due:: YYYY-MM-DD]",
               "emoji": "Obsidian Tasks の絵文字（📅）"
@@ -81,15 +75,12 @@
         "type": "boolean",
         "label": "Write done date on completion",
         "default": true,
-        "description": "Write a done date when a task is marked done.",
         "locales": {
           "zh-CN": {
-            "label": "完成时写入完成日期",
-            "description": "将任务标记为完成时写入完成日期。"
+            "label": "完成时写入完成日期"
           },
           "ja": {
-            "label": "完了時に完了日を書き込む",
-            "description": "タスクを完了にしたときに完了日を書き込みます。"
+            "label": "完了時に完了日を書き込む"
           }
         }
       },
@@ -98,15 +89,12 @@
         "type": "boolean",
         "label": "Write cancelled date",
         "default": true,
-        "description": "Write a cancelled date when a task is cancelled.",
         "locales": {
           "zh-CN": {
-            "label": "取消时写入取消日期",
-            "description": "取消任务时写入取消日期。"
+            "label": "取消时写入取消日期"
           },
           "ja": {
-            "label": "キャンセル時に日付を書き込む",
-            "description": "タスクをキャンセルしたときに日付を書き込みます。"
+            "label": "キャンセル時に日付を書き込む"
           }
         }
       },
@@ -115,15 +103,12 @@
         "type": "boolean",
         "label": "Write created date on new tasks",
         "default": false,
-        "description": "Write a created date when creating a task from the edit dialog.",
         "locales": {
           "zh-CN": {
-            "label": "新建任务时写入创建日期",
-            "description": "通过编辑对话框创建任务时写入创建日期。"
+            "label": "新建任务时写入创建日期"
           },
           "ja": {
-            "label": "新規タスクに作成日を書き込む",
-            "description": "編集ダイアログでタスクを作成するときに作成日を書き込みます。"
+            "label": "新規タスクに作成日を書き込む"
           }
         }
       },
