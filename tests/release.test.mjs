@@ -8,6 +8,13 @@ describe("plugin GitHub releases", () => {
   test("ships Simplified Chinese and Japanese marketplace descriptions", () => {
     for (const locale of ["zh-CN", "ja"]) {
       expect(manifest.locales?.[locale]?.description).toBeTruthy();
+      for (const field of manifest.settings.fields) {
+        expect(field.locales?.[locale]?.label).toBeTruthy();
+        if (field.description) expect(field.locales?.[locale]?.description).toBeTruthy();
+        if (field.type === "select") {
+          for (const option of field.options) expect(field.locales?.[locale]?.options?.[option.value]).toBeTruthy();
+        }
+      }
     }
   });
 

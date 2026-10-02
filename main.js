@@ -112,6 +112,7 @@ const copy = {
       none: "None",
     },
     noHeading: "(No heading)",
+    untitled: "Untitled",
     groups: {
       none: "No grouping",
       due: "Due date",
@@ -200,6 +201,7 @@ const copy = {
       none: "无",
     },
     noHeading: "（无标题）",
+    untitled: "无标题",
     groups: {
       none: "不分组",
       due: "截止日期",
@@ -241,9 +243,62 @@ const copy = {
     created: "创建",
     recurrence: "重复",
   },
+  ja: {
+    panelTitle: "タスク",
+    editTitle: "タスクの作成・編集",
+    openDashboard: "タスク一覧を開く",
+    insertTask: "カーソル位置にタスクを挿入",
+    createOrEdit: "タスクを作成・編集",
+    inserted: "カーソル位置にタスクを挿入しました。",
+    insertFailed: "編集可能なノートを開いてください。",
+    editFailed: "タスクを作成・編集する前に、編集可能なノートを開いてください。",
+    saved: "タスクを保存しました。",
+    loading: "ノートを検索中…",
+    empty: "条件に一致するタスクはありません。",
+    truncated: (shown, total) => `一致した ${total} 件のうち ${shown} 件を表示しています。`,
+    search: "タスクを検索",
+    refresh: "更新",
+    summary: (visible, total) => `${total} 件中 ${visible} 件のタスク`,
+    source: "元のノート",
+    heading: "見出し",
+    toggleFailed: "元のノートが変更されました。タスク一覧を更新して再試行してください。",
+    scanFailed: "ノート内のタスクを検索できませんでした。",
+    saveFailed: "タスクを保存できませんでした。更新して再試行してください。",
+    recurrenceNeedsDate: "繰り返しタスクには期限、予定日、開始日のいずれかが必要です。",
+    descriptionRequired: "タスクの内容を入力してください。",
+    views: { today: "今日", overdue: "期限切れ", week: "今週", inbox: "受信箱", open: "未完了", recurring: "繰り返し", done: "完了", cancelled: "キャンセル", all: "すべて" },
+    priority: "優先度",
+    groupBy: "グループ",
+    all: "すべて",
+    none: "なし",
+    priorities: { highest: "最高", high: "高", medium: "中", low: "低", lowest: "最低", none: "なし" },
+    noHeading: "（見出しなし）",
+    untitled: "無題",
+    groups: { none: "グループ化しない", due: "期限", priority: "優先度", note: "ノート", heading: "見出し", overdue: "期限切れ", today: "今日", week: "今週", later: "それ以降" },
+    statuses: { todo: "未着手", in_progress: "進行中", done: "完了", cancelled: "キャンセル" },
+    fields: { description: "内容", status: "状態", priority: "優先度", due: "期限", scheduled: "予定日", start: "開始日", recurrence: "繰り返し" },
+    dateShortcuts: { today: "今日", tomorrow: "明日", nextWeek: "来週", clear: "クリア" },
+    calendar: "カレンダー",
+    previousMonth: "前の月",
+    nextMonth: "次の月",
+    allDates: "すべての日付",
+    showAllDates: "すべての日付を表示",
+    weekdays: ["日", "月", "火", "水", "木", "金", "土"],
+    emptyOnDate: "この日のタスクはありません。",
+    recurrenceHints: ["every day", "every weekday", "every week", "every month", "every month on the last", "every year"],
+    save: "保存",
+    cancel: "キャンセル",
+    edit: "編集",
+    created: "作成日",
+    recurrence: "繰り返し",
+  },
 };
 
-const language = () => (globalThis.navigator?.language?.toLocaleLowerCase().startsWith("zh") ? copy.zh : copy.en);
+const interfaceLocale = () => globalThis.document?.documentElement?.lang || globalThis.navigator?.language || "en";
+const language = () => {
+  const locale = interfaceLocale().toLocaleLowerCase();
+  return locale.startsWith("zh") ? copy.zh : locale.startsWith("ja") ? copy.ja : copy.en;
+};
 
 export const localDateKey = (date = new Date()) => {
   const year = date.getFullYear();
@@ -301,13 +356,13 @@ export const monthGrid = (monthKey, { weekStartsOn = 1 } = {}) => {
   return cells.slice(35).every((cell) => !cell.inMonth) ? cells.slice(0, 35) : cells;
 };
 
-export const formatDisplayDate = (dateKey, locale = globalThis.navigator?.language ?? "en") => {
+export const formatDisplayDate = (dateKey, locale = interfaceLocale()) => {
   const date = parseLocalDate(dateKey);
   if (!date) return dateKey ?? "";
   return date.toLocaleDateString(locale, { weekday: "short", year: "numeric", month: "short", day: "numeric" });
 };
 
-export const formatMonthTitle = (monthKey, locale = globalThis.navigator?.language ?? "en") => {
+export const formatMonthTitle = (monthKey, locale = interfaceLocale()) => {
   const date = parseLocalDate(`${monthKey}-01`);
   if (!date) return monthKey ?? "";
   return date.toLocaleDateString(locale, { year: "numeric", month: "long" });
@@ -684,7 +739,7 @@ export const parseTasksFromNote = (note, options = {}) => {
         if (headingMatch) heading = headingMatch[2].trim();
         const task = parseTaskLine(line, {
           noteId: note.id,
-          noteTitle: note.title || note.excerpt || "Untitled",
+          noteTitle: note.title || note.excerpt || language().untitled,
           noteRevision: note.revision,
           noteContentHash: note.contentHash,
           from,
@@ -905,7 +960,7 @@ export const groupTasks = (tasks, groupBy, today, text) => {
   for (const task of tasks) {
     let key = "";
     if (groupBy === "priority") key = task.priority?.name ?? "none";
-    else if (groupBy === "note") key = task.noteTitle || "Untitled";
+    else if (groupBy === "note") key = task.noteTitle || language().untitled;
     else if (groupBy === "heading") key = task.heading || text.noHeading;
     else if (groupBy === "due") {
       const date = task.due || task.scheduled;
@@ -1185,8 +1240,8 @@ const createCalendar = (text, { weekStartsOn, locale, onSelect, onMonth }) => {
 
 const mountDashboard = (container, context, controller, mountContext) => {
   const text = language();
-  const locale = globalThis.navigator?.language ?? "en";
-  const weekStartsOn = text === copy.zh ? 1 : 0;
+  const locale = interfaceLocale();
+  const weekStartsOn = text === copy.zh || text === copy.ja ? 1 : 0;
   const hasShell = typeof mountContext?.shell?.set === "function";
   const state = { ...DEFAULT_DASHBOARD_STATE };
   let visibleMonth = null;

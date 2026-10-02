@@ -85,6 +85,27 @@ describe("EdgeEver Tasks", () => {
     deactivate();
   });
 
+  test("uses the EdgeEver interface language for command and panel titles", () => {
+    const originalDocument = globalThis.document;
+    globalThis.document = { documentElement: { lang: "ja" } };
+    const panels = [];
+    const commands = [];
+    try {
+      const deactivate = taskPlugin.activate({
+        ui: { panels: { register: (panel) => { panels.push(panel); return () => {}; } }, showNotice: () => {} },
+        commands: { register: (command) => { commands.push(command); return () => {}; } },
+        events: { on: () => () => {} },
+        editor: { insertAtCursor: async () => {}, getDocument: async () => null, getSelection: async () => null },
+      });
+      expect(panels[0].title).toBe("タスク");
+      expect(commands[0].title).toBe("タスク一覧を開く");
+      deactivate();
+    } finally {
+      if (originalDocument === undefined) delete globalThis.document;
+      else globalThis.document = originalDocument;
+    }
+  });
+
   test("parses standard Markdown tasks with source offsets and metadata", () => {
     const tasks = parseTasksFromNote(note());
     expect(tasks).toHaveLength(2);

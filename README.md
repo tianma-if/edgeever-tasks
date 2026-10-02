@@ -133,6 +133,8 @@ Recurring tasks need a due, scheduled, or start date. Completing `[repeat:: ever
 
 ## Settings
 
+The plugin follows the EdgeEver interface language for its settings, dashboard, commands, and notices. Simplified Chinese, Japanese, and English are supported; other languages fall back to English.
+
 - **Global filter** — only index checklist items that contain this string, for example `#task`.
 - **Task metadata format** — write `[due:: YYYY-MM-DD]` (default) or Obsidian Tasks emoji.
 - **Write done date on completion** — write a completion date when a task is marked done (on by default).
