@@ -20,6 +20,7 @@ import {
   monthGrid,
   monthKeyFromDate,
   nextRecurrenceDate,
+  openTaskNote,
   parseRecurrenceRule,
   parseTaskLine,
   parseTasksFromNote,
@@ -55,6 +56,29 @@ const copy = {
 };
 
 describe("EdgeEver Tasks", () => {
+  test("opens the screenshot task using body text without checkbox syntax", async () => {
+    const calls = [];
+    const context = { ui: { openNote: async (...args) => { calls.push(args); } } };
+    const body = "体验 EdgeEver 双视图与大纲导航 [completion:: 2026-10-09]";
+    for (const prefix of ["- [x] ", "  * [ ] ", "> 1. [X] ", "+ [/] ", "2) [-] "]) {
+      await openTaskNote(context, parseTaskLine(`${prefix}${body}`, { noteId: "demo" }));
+    }
+    expect(calls).toEqual(Array(5).fill(["demo", { search: body }]));
+  });
+
+  test("preserves body spacing and limits navigation searches to the host API bound", async () => {
+    const calls = [];
+    const context = { ui: { openNote: async (...args) => { calls.push(args); } } };
+    await openTaskNote(context, parseTaskLine("- [ ] Ship  release 📅 2026-10-10", { noteId: "demo" }));
+    await openTaskNote(context, parseTaskLine(`- [ ] ${"a".repeat(600)}`, { noteId: "long" }));
+    await openTaskNote(context, parseTaskLine("- [ ] ", { noteId: "empty" }));
+    expect(calls).toEqual([
+      ["demo", { search: "Ship  release 📅 2026-10-10" }],
+      ["long", { search: "a".repeat(500) }],
+      ["empty", undefined],
+    ]);
+  });
+
   test("registers dashboard and edit panels", () => {
     const panels = [];
     const commands = [];

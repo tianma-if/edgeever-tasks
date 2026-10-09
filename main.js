@@ -697,6 +697,13 @@ export const parseTaskLine = (line, location = {}, options = {}) => {
   };
 };
 
+export const openTaskNote = (context, task) => {
+  // The host searches rendered text, where list markers and checkboxes are nodes.
+  // Keep the body metadata to distinguish otherwise identical task descriptions.
+  const search = (task.rawLine.match(TASK_LINE_PATTERN)?.[4] ?? "").trim().slice(0, 500);
+  return context.ui.openNote(task.noteId, search ? { search } : undefined);
+};
+
 export const parseTasksFromNote = (note, options = {}) => {
   const tasks = [];
   const markdown = note.contentMarkdown ?? "";
@@ -1569,7 +1576,7 @@ const mountDashboard = (container, context, controller, mountContext) => {
         }
         content.append(description, metadata);
         content.addEventListener("click", () => {
-          void context.ui.openNote(task.noteId, { search: task.rawLine.trim().slice(0, 500) })
+          void openTaskNote(context, task)
             .catch(() => context.ui.showNotice(text.toggleFailed));
         });
         const edit = document.createElement("button");
@@ -1585,7 +1592,7 @@ const mountDashboard = (container, context, controller, mountContext) => {
           if (event.key === " " || event.key === "Enter") {
             event.preventDefault();
             if (event.key === " ") void toggleTask(task).catch(() => {});
-            else void context.ui.openNote(task.noteId, { search: task.rawLine.trim().slice(0, 500) });
+            else void openTaskNote(context, task).catch(() => context.ui.showNotice(text.toggleFailed));
           } else if (event.key === "e") {
             event.preventDefault();
             void openEditPanel(context, { mode: "edit", task: snapshotTask(task) });
